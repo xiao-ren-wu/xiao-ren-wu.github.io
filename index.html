@@ -241,6 +241,49 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
 
+        .solution-link {
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        .solution-link.has-solution {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        .solution-link.has-solution:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .solution-link.no-solution {
+            color: #adb5bd;
+            border: 2px solid #dee2e6;
+            cursor: default;
+        }
+
+        .solution-stat {
+            text-align: center;
+            margin: 20px 0 10px;
+            font-size: 0.92rem;
+            color: #6c757d;
+        }
+        .solution-stat strong {
+            color: #667eea;
+            font-weight: 700;
+        }
+        .solution-stat .hint {
+            font-size: 0.82rem;
+            color: #adb5bd;
+            margin-left: 8px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -287,6 +330,7 @@
             </div>
         </div>
         
+        <div class="solution-stat" id="solutionStat"></div>
         <div class="question-list" id="questionList"></div>
     </div>
 
@@ -300,8 +344,18 @@
         
         let filteredData = [...jsonData];
         const data = jsonData;
-        let selectedDifficulty = 'all'; // 默认选择全部难度
-        let searchTerm = ''; // 默认搜索关键词为空
+        let selectedDifficulty = 'all';
+        let searchTerm = '';
+
+        // 已有题解的题目 slug 列表
+        const solutionSlugs = new Set([
+            'median-of-two-sorted-arrays',
+            'substring-with-concatenation-of-all-words',
+            'longest-valid-parentheses',
+            'first-missing-positive'
+        ]);
+        // 已有题解数量
+        const solutionCount = solutionSlugs.size;
         
         // 从JSON数据中提取所有唯一的类别标签
         const allCategories = new Set();
@@ -357,10 +411,23 @@
             renderQuestions(filteredData);
         }
         
+        // 更新题解统计
+        function updateSolutionStat(questions) {
+            const visibleSlugs = new Set(questions.map(q => q.titleSlug));
+            const visibleSolutions = [...solutionSlugs].filter(s => visibleSlugs.has(s)).length;
+            const statEl = document.getElementById('solutionStat');
+            if (visibleSolutions === 0) {
+                statEl.innerHTML = `共 <strong>${solutionCount}</strong> 篇题解`;
+            } else {
+                statEl.innerHTML = `共 <strong>${solutionCount}</strong> 篇题解 · 当前列表中有 <strong>${visibleSolutions}</strong> 篇可见`;
+            }
+        }
+
         // 渲染题目列表
         function renderQuestions(questions) {
             if (questions.length === 0) {
                 questionList.innerHTML = '<div class="no-results">没有找到匹配的题目</div>';
+                updateSolutionStat(questions);
                 return;
             }
             
@@ -386,8 +453,12 @@
                     <a href="https://leetcode.cn/problems/${question.titleSlug}" target="_blank" class="leetcode-btn">
                         去做题
                     </a>
+                    ${solutionSlugs.has(question.titleSlug)
+                        ? `<a href="solution.html?slug=${question.titleSlug}&title=${encodeURIComponent(question.translatedTitle)}&difficulty=${question.difficulty}" class="solution-link has-solution">题解</a>`
+                        : `<span class="solution-link no-solution">暂无题解</span>`}
                 </div>
             `).join('');
+            updateSolutionStat(questions);
         }
         
         // 搜索功能
