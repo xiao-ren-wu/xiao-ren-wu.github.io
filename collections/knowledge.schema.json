@@ -1,0 +1,36 @@
+{
+  "$ref": "#/definitions/knowledge",
+  "definitions": {
+    "knowledge": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "created": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "errorMessage": {
+            "pattern": "expected an ISO date (YYYY-MM-DD)"
+          }
+        },
+        "updated": {
+          "$ref": "#/definitions/knowledge/properties/created"
+        },
+        "$schema": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tags"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
