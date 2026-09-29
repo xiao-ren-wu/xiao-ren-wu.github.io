@@ -1,0 +1,490 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>分区选择、批量与压缩 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%88%86%E5%8C%BA%E9%80%89%E6%8B%A9%E3%80%81%E6%89%B9%E9%87%8F%E4%B8%8E%E5%8E%8B%E7%BC%A9/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="分区选择、批量与压缩 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%88%86%E5%8C%BA%E9%80%89%E6%8B%A9%E3%80%81%E6%89%B9%E9%87%8F%E4%B8%8E%E5%8E%8B%E7%BC%A9/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="生产者这一层只干三件事：决定消息进哪个分区、把它压成尽可能少的中单位、在延迟与可靠性之间选一个点。Kafka「快」的常见归因里有两条落在本篇（批量与压缩），另两条（顺序写、零拷贝）在 Kafka 存储机制索引；可靠性那一…"/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="生产者这一层只干三件事：决定消息进哪个分区、把它压成尽可能少的中单位、在延迟与可靠性之间选一个点。Kafka「快」的常见归因里有两条落在本篇（批量与压缩），另两条（顺序写、零拷贝）在 Kafka 存储机制索引；可靠性那一…"/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/" aria-current="page">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">分区选择、批量与压缩 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/">Kafka</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">Kafka</span></li><li><span class="tag">生产者</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="分区选择批量与压缩">分区选择、批量与压缩</h2>
+<aside class="callout callout-info">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-5v-6m0-3h.01"></path></svg>来源</p>
+<p>基于 Kafka 4.x 官方文档与<code dir="auto">ProducerConfig</code> 的配置校验逻辑整理。所有配置默认值均标注适用版本；随版本变化的项目单独用 callout 说明。
+文中出现的消息大小、分区数、网络 RTT、请求速率等数值，<strong>一律是为讲解假设的示例值，不是 Kafka 的默认值</strong>。</p>
+</aside>
+<p>生产者这一层只干三件事：决定消息进哪个分区、把它压成尽可能少的中单位、在延迟与可靠性之间选一个点。Kafka「快」的常见归因里有两条落在本篇（批量与压缩），另两条（顺序写、零拷贝）在 <a href="/knowledge/Kafka/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/Kafka%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6%E7%B4%A2%E5%BC%95/">Kafka 存储机制索引</a>；可靠性那一侧的阶梯在 <a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>。</p>
+<h3 id="一partitioner-如何决定目标分区">一、Partitioner 如何决定目标分区</h3>
+<p>分区选择是一条<strong>有优先级的判定链</strong>，不是「一个算法」。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">优先级</th><th align="left">调用方是否指定</th><th align="left">判定依据</th><th align="left">结果</th></tr></thead><tbody><tr><td align="left">1</td><td align="left">指定了 <code dir="auto">partition</code> 参数</td><td align="left">该参数值</td><td align="left">直接写入该分区，<strong><code dir="auto">key</code> 被完全忽略</strong></td></tr><tr><td align="left">2</td><td align="left">未指定 <code dir="auto">partition</code>，指定了 <code dir="auto">key</code></td><td align="left"><code dir="auto">key</code> 字节的哈希值</td><td align="left">同一 <code dir="auto">key</code> 恒定落到同一分区</td></tr><tr><td align="left">3</td><td align="left">两者都未指定</td><td align="left">内置分区器的粘性策略</td><td align="left">尽量往同一个分区攒，凑满一批或等待到期后再换分区</td></tr></tbody></table></div>
+<p>第 1 条是高频陷阱：<strong>显式指定 <code dir="auto">partition</code> 的优先级高于 <code dir="auto">key</code></strong>。业务代码里如果「有时传 <code dir="auto">partition</code>、有时传 <code dir="auto">key</code>」，同一实体的消息会被打散到不同分区，顺序性直接失效。面试若被问「怎么强制写某个分区」，正确答法是传 <code dir="auto">partition</code>，但必须同时说明这会放弃 <code dir="auto">key</code> 带来的保序。</p>
+<p>第 2 条是 Kafka 顺序保证的<strong>唯一客户端入口</strong>：默认对 <code dir="auto">key</code> 取 murmur2 哈希再对分区数取模。</p>
+<p>第 3 条是 Kafka 4.x 内置分区器的重要行为：对无 <code dir="auto">key</code> 的消息采用<strong>粘性分区</strong>。这样一批消息（而不是一条）对应一个请求，请求数显著下降；代价是<strong>短时负载倾斜</strong>，在一个批次周期内新增的消息几乎全落在同一个分区。Kafka 4.x 另提供按 Broker 上报的分区负载做分配的自适应分区选项，属早期访问特性，启用前请查你所用版本的官方文档。</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">A[业务线程 send] --> B{是否显式指定 partition?}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|是| C[直接追加到该分区&#x3C;br/>忽略 key]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|否| D{是否提供 key?}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">D -->|是| E[对 key 取哈希&#x3C;br/>对分区数取模]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">D -->|否| F[粘性策略&#x3C;br/>沿用当前分区直到批次切换]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> G[进入 RecordAccumulator]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">E --> G</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">F --> G</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">G --> H[按 batch.size 切 RecordBatch]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">H --> I[linger.ms 到期或批次已满]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">I --> J[压缩后发给该分区 Leader]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  A[业务线程 send] --> B{是否显式指定 partition?}  B -->|是| C[直接追加到该分区<br/>忽略 key]  B -->|否| D{是否提供 key?}  D -->|是| E[对 key 取哈希<br/>对分区数取模]  D -->|否| F[粘性策略<br/>沿用当前分区直到批次切换]  C --> G[进入 RecordAccumulator]  E --> G  F --> G  G --> H[按 batch.size 切 RecordBatch]  H --> I[linger.ms 到期或批次已满]  I --> J[压缩后发给该分区 Leader]"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问：<code dir="auto">key</code> 相同的消息一定严格有序吗？</strong></p>
+<p>答：分区层面成立，客户端层面<strong>不绝对</strong>。四点必须说清：</p>
+<ol>
+<li>哈希取模决定了同一 <code dir="auto">key</code> 落同一分区，而分区由<strong>单个 Leader 追加写入</strong>，因此服务端写入顺序等于客户端的 append 顺序</li>
+<li><strong>扩分区会改变取模基数</strong>，同一 <code dir="auto">key</code> 会被重新映射，扩容瞬间的顺序就断了</li>
+<li><strong>失败重试会破坏顺序</strong>：前面的消息重试未成功、后面的已成功，业务看到的就是乱序（重试的单位是整个批次，批量化会放大这一点，见第四节）</li>
+<li>消费侧还必须<strong>单线程按序消费同一分区</strong>，并发消费或重试都会打乱（详见 <a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%A1%BA%E5%BA%8F%E6%B6%88%E8%B4%B9%E4%B8%8E%E7%A7%AF%E5%8E%8B%E5%A4%84%E7%90%86/">顺序消费与积压处理</a>）</li>
+</ol>
+</blockquote>
+<h3 id="二自定义分区器的代价">二、自定义分区器的代价</h3>
+<p>实现 <code dir="auto">Partitioner</code> 接口很容易，但它是一次<strong>用维护成本换灵活性</strong>的交易。内置分区器已经替你做完的事，自定义后全部回到你身上：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">能力</th><th align="left">内置分区器</th><th align="left">自定义后由谁负责</th></tr></thead><tbody><tr><td align="left"><code dir="auto">key</code> 哈希与取模</td><td align="left">已实现</td><td align="left">自己实现，且必须与历史分区映射保持兼容</td></tr><tr><td align="left">无 <code dir="auto">key</code> 时的负载均衡</td><td align="left">粘性策略</td><td align="left">自己实现，否则容易退化成单分区热点</td></tr><tr><td align="left">批次粘滞与请求合并</td><td align="left">已实现</td><td align="left">自己实现，否则吞吐明显下降</td></tr><tr><td align="left">顺序性前提（同 key 同分区）</td><td align="left">天然满足</td><td align="left"><strong>业务代码负责</strong>，写错无人报错</td></tr><tr><td align="left">分区扩容后的行为</td><td align="left">取模自然重分布</td><td align="left">需要显式处理迁移期行为</td></tr><tr><td align="left">客户端 API 演进</td><td align="left">官方跟随</td><td align="left">需要自己跟进并回归验证</td></tr></tbody></table></div>
+<p><strong>最常见的翻车写法是「<code dir="auto">key</code> 为空时返回固定分区」。</strong> 这条路径把「无 <code dir="auto">key</code> 的消息」全部打到同一分区，结果是：单分区成为写入热点，<code dir="auto">buffer.memory</code> 迅速耗尽，吞吐被钉死在一个分区上。排查时往往误以为是 Broker 侧问题。</p>
+<p>第二条常见翻车是<strong>只按 <code dir="auto">key</code> 哈希、不考虑分区数变化</strong>。分区数可以在不重建 Topic 的前提下增加（只能增不能减），一旦变化，同一 <code dir="auto">key</code> 的落点随之改变，扩容前后的顺序性无法衔接。</p>
+<blockquote>
+<p><strong>面试追问：什么时候真的需要自定义分区器？</strong></p>
+<p>答题骨架（先给判断标准，再给代价）：只有当内置的哈希策略<strong>表达不了业务语义</strong>时才值得写。正当理由通常有两个：</p>
+<ol>
+<li>需要<strong>按业务维度做亲和</strong>，例如同一租户的消息必须进同一分区以满足配额或限流，而 <code dir="auto">key</code> 承载不了这个语义（可以用复合 <code dir="auto">key</code> 解决，但会牵动上游）</li>
+<li>需要<strong>热点感知</strong>或<strong>显式规避某些分区</strong></li>
+</ol>
+<p>代价必须一并说：放弃官方对请求合并与负载均衡的优化、放弃版本兼容性保证、顺序性的正确性从「框架保证」变成「你的代码保证」。答不到代价这一层，这个回答是不完整的。</p>
+</blockquote>
+<h3 id="三消息-key-与顺序性的绑定关系">三、消息 key 与顺序性的绑定关系</h3>
+<p>把这一节单独拎出来，因为「顺序保证」是本篇最容易被过度承诺的能力。</p>
+<h4 id="31-顺序保证来自单-leader不来自客户端">3.1 顺序保证来自单 Leader，不来自客户端</h4>
+<p>Kafka 的分区内有序是一个<strong>结构性事实</strong>：每个分区恰好一个 Leader，全部写入走这一条路径，天然串行。客户端做的只是「把需要有序的消息都送到同一个分区」。因此：</p>
+<ul>
+<li>保序粒度是<strong>分区</strong>，不是 topic，更不是集群</li>
+<li>跨 <code dir="auto">key</code> 不保序，因为不同 <code dir="auto">key</code> 会落到不同分区</li>
+<li><code dir="auto">key</code> 为空时（走粘性策略）只保证<strong>同一批次内</strong>的顺序，批次切换即换分区</li>
+</ul>
+<h4 id="32-key-该选什么">3.2 key 该选什么</h4>
+<p>选 <code dir="auto">key</code> 的唯一标准是：<strong>它必须恰好等于「需要有序的那组实体的标识」</strong>。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">场景</th><th align="left">合适的 <code dir="auto">key</code></th><th align="left">常见的错误选择</th></tr></thead><tbody><tr><td align="left">订单状态变更需有序</td><td align="left">订单号</td><td align="left">用户名（一个用户多个订单会互相阻塞）</td></tr><tr><td align="left">同一实体的库存扣减</td><td align="left">商品 SKU</td><td align="left">订单号（会把不同商品强行串行）</td></tr><tr><td align="left">日志类，无需顺序</td><td align="left">不设 <code dir="auto">key</code></td><td align="left">时间戳（会让相邻时间的消息挤进同一分区）</td></tr><tr><td align="left">追求最大吞吐</td><td align="left">不设 <code dir="auto">key</code></td><td align="left">随机数（均匀打散了，但请求数不合并）</td></tr></tbody></table></div>
+<p>最后一行值得展开：不设 <code dir="auto">key</code> 走粘性策略，吞吐往往<strong>优于</strong>设一个高基数 <code dir="auto">key</code>。设 <code dir="auto">key</code> 的代价是同一实体的所有消息挤在同一个分区，分区数不够时其余分区闲置，<strong>有效并行度下降</strong>。这是「保序」与「吞吐」的直接对赌。</p>
+<h4 id="33-四个会破坏顺序的操作">3.3 四个会破坏顺序的操作</h4>
+<ol>
+<li><strong>扩分区</strong>：取模基数变化，同 <code dir="auto">key</code> 重新映射</li>
+<li><strong>并发消费同一分区</strong>：多线程处理等于放弃了消费侧顺序</li>
+<li><strong>失败重试</strong>：第 N 条重试未完成、第 N+1 条已成功，业务看到乱序</li>
+<li><strong>多个 Producer 实例发同一实体</strong>：不同实例各自持有自己的批次状态，没有任何机制让它们排队</li>
+</ol>
+<p>第 4 条经常被忽略：保序的前提是「同一个实体始终由同一个 Producer 实例发送」。</p>
+<h3 id="四批量发送batchsize-与-lingerms-的权衡">四、批量发送：batch.size 与 linger.ms 的权衡</h3>
+<h4 id="41-先分清两个batch">4.1 先分清两个「batch」</h4>
+<p>Kafka 里有两层常被混为一谈的批量：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">层</th><th align="left">是什么</th><th align="left">受什么控制</th></tr></thead><tbody><tr><td align="left">客户端 <code dir="auto">RecordAccumulator</code></td><td align="left">按分区组织的内存缓冲区，攒住尚未发送的消息</td><td align="left"><code dir="auto">buffer.memory</code></td></tr><tr><td align="left">协议层 <code dir="auto">RecordBatch</code></td><td align="left">一次请求实际携带的一段消息，<strong>压缩也作用在它身上</strong></td><td align="left"><code dir="auto">batch.size</code></td></tr></tbody></table></div>
+<p><strong><code dir="auto">batch.size</code> 默认 16384 字节（16 KiB，Kafka 4.x）</strong>，含义是：同一个分区上，单个 <code dir="auto">RecordBatch</code> 攒到 16 KiB 就封口。它不是「一次最多发 16 KiB」的上限约束，而是「<strong>多久封口一次</strong>」的切分粒度。</p>
+<p><strong><code dir="auto">linger.ms</code> 默认 5 毫秒（Kafka 4.x）</strong>，含义是：批次没满时，最多等 5 毫秒就把它发出去。它管的是<strong>不满时的等待上限</strong>；批次一满立刻发，不等。</p>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>版本变化</p>
+<p><code dir="auto">linger.ms</code> 的默认值<strong>在 Kafka 4.0 由 0 改为 5</strong>。本库基线是 Kafka 4.x，因此「攒批」是客户端的<strong>开箱行为</strong>；<code dir="auto">linger.ms=0</code> 的「来一条发一条」语义<strong>只适用于 Kafka 4.0 之前的版本</strong>。在 4.x 上要立即发送必须显式配置，面试时把 <code dir="auto">linger.ms=0</code> 说成默认值是版本口径错误。</p>
+</aside>
+<h4 id="42-用具体数字说明差别">4.2 用具体数字说明差别</h4>
+<p>以下全部是<strong>假设值</strong>。设：单条消息 1 KiB，稳态写入 1000 条/秒（约 1 MiB/秒），到 Leader 的 RTT 假设 5 毫秒。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">配置</th><th align="left">每秒请求数（估算）</th><th align="left">单请求有效载荷</th><th align="left">消息可见延迟上界</th><th align="left">说明</th></tr></thead><tbody><tr><td align="left"><code dir="auto">linger.ms=0</code>（&#x3C; 4.0 语义）</td><td align="left">约 1000</td><td align="left">约 1 KiB</td><td align="left">约 1 个 RTT（5 ms）</td><td align="left">几乎每条一个请求，协议头与网络栈开销占比极高</td></tr><tr><td align="left"><code dir="auto">linger.ms=5</code>（Kafka 4.x 开箱值）</td><td align="left">约 200</td><td align="left">约 5 KiB</td><td align="left">约 <code dir="auto">linger.ms</code> 加发送耗时</td><td align="left">请求数降到约五分之一</td></tr><tr><td align="left"><code dir="auto">linger.ms=50</code></td><td align="left">约 20</td><td align="left">约 50 KiB</td><td align="left">约 50 ms 加发送耗时</td><td align="left">吞吐进一步提升，<strong>延迟上界抬到 50 ms</strong></td></tr><tr><td align="left"><code dir="auto">linger.ms=1000</code></td><td align="left">约 1</td><td align="left">约 1 MiB</td><td align="left">约 1 s 加发送耗时</td><td align="left">延迟不可接受，见下方与 <code dir="auto">delivery.timeout.ms</code> 的关系</td></tr></tbody></table></div>
+<p>关键观察：<strong><code dir="auto">linger.ms</code> 从 5 调到 50，请求数少了一个数量级，代价是延迟上界从几毫秒抬到几十毫秒。</strong> 这就是全部权衡的形状：延迟换请求数与压缩率。</p>
+<h4 id="43-参数之间的相互约束">4.3 参数之间的相互约束</h4>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">关系</th><th align="left">约束</th></tr></thead><tbody><tr><td align="left"><code dir="auto">linger.ms</code> vs <code dir="auto">delivery.timeout.ms</code></td><td align="left"><code dir="auto">delivery.timeout.ms</code> 默认 120000 毫秒（2 分钟，Kafka 4.x），约束的是从 <code dir="auto">send()</code> 到收到响应（含重试）的总时长。<code dir="auto">linger.ms</code> 若被设得接近或超过它，消息还在缓冲里就已被判定失败</td></tr><tr><td align="left"><code dir="auto">batch.size</code> vs 消息大小</td><td align="left">单条消息大于 <code dir="auto">batch.size</code> 时，该条独占一个批次，<code dir="auto">batch.size</code> 失效且每请求只带一条，批量收益归零</td></tr><tr><td align="left"><code dir="auto">connections.max.idle.ms</code></td><td align="left">默认 540000 毫秒（Kafka 4.x），控制连接空闲回收。它是<strong>连接级</strong>参数，与批量快慢不直接耦合，但在 <code dir="auto">linger.ms</code> 很大、连接长时间无流量的场景下会被触发</td></tr></tbody></table></div>
+<h4 id="44-缓冲池满了会发生什么">4.4 缓冲池满了会发生什么</h4>
+<p><strong><code dir="auto">buffer.memory</code> 默认 33554432 字节（32 MiB，Kafka 4.x）</strong>，这是<strong>整个 Producer 实例</strong>（不是每个分区）可用的发送缓冲总量。可用空间不足时有三种截然不同的状态，处理方式完全不同：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">状态</th><th align="left">触发条件</th><th align="left">客户端行为</th><th align="left">可恢复性</th></tr></thead><tbody><tr><td align="left">等待分配</td><td align="left">缓冲池有空间但暂时被其他分区批次占用</td><td align="left">生产者线程等待分配，等待有上限（由 <code dir="auto">max.block.ms</code> 一类参数约束，<strong>其默认值未在事实清单中取得官方对照，以你所用版本官方文档为准</strong>）</td><td align="left">超时后抛超时类异常，业务侧可重试</td></tr><tr><td align="left">单批超限</td><td align="left">单条消息或单个批次大于整个 <code dir="auto">buffer.memory</code></td><td align="left">分配永远无法满足，抛内存耗尽类异常</td><td align="left"><strong>不可通过等待恢复</strong>，必须调大 <code dir="auto">buffer.memory</code> 或调小消息体</td></tr><tr><td align="left">静默丢弃</td><td align="left">缓冲在等待期间已超过总时长上限，批次被判定超时</td><td align="left">批次被丢弃，<strong>但它可能已经写进了 Broker 的日志</strong></td><td align="left">调用方收到超时；若随后重试就会产生重复（幂等机制正是为解决这一点，见 <a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>）</td></tr></tbody></table></div>
+<p>第三行是本篇与幂等那一篇的接缝：<strong>批量越大，缓冲停留时间越长，超时与重试的耦合越强</strong>。调大 <code dir="auto">batch.size</code> 之前要意识到你在同时放大这个风险。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">A[消息到达] --> B{linger.ms 是否已到?}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|是| C[立即发送 batch]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|否| D[继续攒批]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">D --> B</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> E[压缩后发给 Leader]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  A[消息到达] --> B{linger.ms 是否已到?}  B -->|是| C[立即发送 batch]  B -->|否| D[继续攒批]  D --> B  C --> E[压缩后发给 Leader]"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问：把 <code dir="auto">linger.ms</code> 调大一定能提高吞吐吗？</strong></p>
+<p>答：不一定，分三种情况。</p>
+<ol>
+<li><strong>消息量已经远超网络能力</strong>时调大有用：请求数按 <code dir="auto">linger.ms</code> 反比下降，协议头与系统调用开销被摊薄，吞吐上去了，代价是延迟上界同步抬升</li>
+<li><strong>消息量很小</strong>时调大几乎没用：可能一个 <code dir="auto">linger.ms</code> 周期内只攒到一条消息，攒批根本没有发生，只是白等</li>
+<li><strong><code dir="auto">linger.ms</code> 已大于可接受的延迟上界</strong>时，问题从「吞吐不足」变成「延迟不可用」，此时正确的做法是<strong>加分区</strong>而不是加 <code dir="auto">linger.ms</code></li>
+</ol>
+<p>版本口径必须带上：Kafka 4.x 的 <code dir="auto">linger.ms</code> 开箱值已经是 5 毫秒（4.0 起由 0 改为 5），所以「调大 <code dir="auto">linger.ms</code>」是针对已经攒批的版本再调，不能把「<code dir="auto">linger.ms=0</code> 立刻发」说成默认行为。</p>
+</blockquote>
+<h3 id="五压缩算法选择">五、压缩算法选择</h3>
+<p><strong><code dir="auto">compression.type</code> 默认 <code dir="auto">none</code>（Kafka 4.x）</strong>，即开箱不压缩。可选值：<code dir="auto">gzip</code>、<code dir="auto">snappy</code>、<code dir="auto">lz4</code>、<code dir="auto">zstd</code>。</p>
+<p>压缩发生在<strong>客户端</strong>，且作用对象是第四节的协议层 <code dir="auto">RecordBatch</code>，<strong>不是</strong>单条消息。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">算法</th><th align="left">CPU 开销</th><th align="left">压缩率</th><th align="left">典型定位</th></tr></thead><tbody><tr><td align="left"><code dir="auto">none</code></td><td align="left">最低</td><td align="left">无</td><td align="left">消息体已压缩、或追求最低延迟</td></tr><tr><td align="left"><code dir="auto">gzip</code></td><td align="left">高</td><td align="left">中到高</td><td align="left">兼容性好，CPU 换网络；老旧环境常用</td></tr><tr><td align="left"><code dir="auto">snappy</code></td><td align="left">低</td><td align="left">低到中</td><td align="left">快速压解压，压缩率让步</td></tr><tr><td align="left"><code dir="auto">lz4</code></td><td align="left">很低</td><td align="left">低</td><td align="left">极致的压解压速度，适合 CPU 紧张的场景</td></tr><tr><td align="left"><code dir="auto">zstd</code></td><td align="left">中</td><td align="left">高</td><td align="left">兼顾速度与压缩率，Kafka 官方文档推荐用于追求高压缩比的场景</td></tr></tbody></table></div>
+<p>具体压缩率与 CPU 消耗<strong>强烈依赖消息内容</strong>（JSON、Avro、Protobuf 这类带重复结构的编码压缩率高；二进制、图片、已加密的载荷几乎压不动），必须用自己的消息样本实测，不能按上表选了就上线。</p>
+<p>什么时候值得开：</p>
+<ul>
+<li>消息字段重复度高、序列化后冗余明显</li>
+<li>网络是瓶颈（跨机房、跨可用区）</li>
+<li>批量已经做得足够大（原因见第六节）</li>
+</ul>
+<p>什么时候别开：</p>
+<ul>
+<li>载荷本身不可压缩（图片、音视频、加密后的字节流），开了只白烧 CPU</li>
+<li>CPU 已经是瓶颈，压缩在生产者 I/O 线程上跑，会挤占发送能力</li>
+<li>延迟要求极端严格，压缩的 CPU 时间不可接受</li>
+</ul>
+<h3 id="六压缩与批量的耦合关系">六、压缩与批量的耦合关系</h3>
+<p>这两件事不是并列的两个优化，而是<strong>同一条流水线上的前后两段</strong>，且第二段的收益完全由第一段决定。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph LR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">A[业务线程] --> B[Partitioner 选分区]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B --> C[RecordAccumulator&#x3C;br/>按分区组织]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> D[按 batch.size 切 RecordBatch]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">D --> E[linger.ms 决定何时发]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">E --> F[压缩整个 RecordBatch]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">F --> G[一次请求发往 Leader]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">G -.下一批.-> C</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph LR  A[业务线程] --> B[Partitioner 选分区]  B --> C[RecordAccumulator<br/>按分区组织]  C --> D[按 batch.size 切 RecordBatch]  D --> E[linger.ms 决定何时发]  E --> F[压缩整个 RecordBatch]  F --> G[一次请求发往 Leader]  G -.下一批.-> C"><div></div></button></div></figure></div>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">batch 大小</th><th align="left">每条消息摊薄的批次开销</th><th align="left">压缩效果</th><th align="left">结果</th></tr></thead><tbody><tr><td align="left">很小（1 到 2 条）</td><td align="left">批次头、CRC、offset 元数据被 1 到 2 条分摊</td><td align="left">几乎等于不压缩（无跨消息可复用的重复模式）</td><td align="left"><strong>负优化</strong>：白烧 CPU 还多花带宽</td></tr><tr><td align="left">中等（10 到 20 条）</td><td align="left">开始摊薄</td><td align="left">重复字段被有效合并</td><td align="left">收益开始显现</td></tr><tr><td align="left">接近 <code dir="auto">batch.size</code>（16 KiB，Kafka 4.x）</td><td align="left">摊薄充分</td><td align="left">压缩率接近最优区间</td><td align="left">批量与压缩的组合收益最大</td></tr></tbody></table></div>
+<p><strong>核心结论：压缩放大了批量配置的收益，而批量太小会让压缩变成负优化。</strong> 只调 <code dir="auto">compression.type</code> 不调批量，收益很有限；反之只调批量不压缩，网络开销仍然偏高。两者一起调，才是 Kafka 高吞吐的完整来源。</p>
+<p>顺带澄清一个常见混淆：<strong>压缩与顺序性无关</strong>。压缩发生在发送路径上，不改变 offset 的分配与语义；<code dir="auto">key</code> 决定的分区归属也不受压缩影响。</p>
+<h3 id="七面试高频追问">七、面试高频追问</h3>
+<p>按面试出现频率排序。</p>
+<p><strong>1. <code dir="auto">batch.size</code> 和 <code dir="auto">linger.ms</code> 分别控制什么？想降低发送延迟该调哪个？</strong></p>
+<p>答题骨架：<code dir="auto">batch.size</code> 控制<strong>批次封口的粒度</strong>（满了就发，默认 16384 字节即 16 KiB，Kafka 4.x）；<code dir="auto">linger.ms</code> 控制<strong>不满时最多等多久</strong>（默认 5 毫秒，Kafka 4.x，且 4.0 起由 0 改为 5）。要降延迟优先调小 <code dir="auto">linger.ms</code>，因为它是「主动等待」的那一项；调小 <code dir="auto">batch.size</code> 也能提发送频率，但会降低压缩率并增加请求数，通常不是首选。注意 Kafka 4.x 上两者开箱即带攒批行为，「立刻发」需要显式把 <code dir="auto">linger.ms</code> 设为 0。</p>
+<p><strong>2. 把 <code dir="auto">batch.size</code> 调大一定会变快吗？</strong></p>
+<p>答题骨架：不一定，且<strong>可能变慢</strong>。小消息量时，调大 <code dir="auto">batch.size</code> 会让批次更难填满，反而延长每条消息的等待时间；消息体本身大于 <code dir="auto">batch.size</code> 时，该条独占一个批次，批量收益为零。真正有效的方向是<strong>先让消息量与分区数匹配，再谈 <code dir="auto">batch.size</code> 与 <code dir="auto">linger.ms</code></strong>。</p>
+<p><strong>3. 压缩和批量必须一起做吗？</strong></p>
+<p>答题骨架：必须。压缩作用在协议层批次上，批次越小压缩率越差，接近单条时压缩等于白做。先把批量调大到能稳定填满的量级，再开压缩，收益才是叠加的。反过来，「消息体不可压缩」的场景（图片、已加密载荷）两个都不必开。</p>
+<p><strong>4. 要保证同一实体的消息有序，<code dir="auto">key</code> 该怎么设？什么时候会失效？</strong></p>
+<p>答题骨架：<code dir="auto">key</code> 必须恰好是「需要有序的那组实体的标识」，同 <code dir="auto">key</code> 经哈希落同一分区，由单 Leader 追加写入兑现顺序。失效场景四个：扩分区（取模基数变化）、并发消费同一分区、失败重试（重试单位是批次，批量化会放大乱序）、多个 Producer 实例发同一实体（实例间无排队机制）。还要补一句代价：设 <code dir="auto">key</code> 会把同一实体的消息压在单个分区，<strong>有效并行度下降</strong>，分区数不足时吞吐会掉。</p>
+<p><strong>5. <code dir="auto">buffer.memory</code> 不够用时，Producer 会怎样？为什么这个问题比想象中难处理？</strong></p>
+<p>答题骨架：三种状态分开答。可恢复的是「等待分配」，生产者等待（有上限，超时抛异常）；不可恢复的是「单批超限」，消息体或批次大于整个缓冲池时分配永远不满足，必须调大 <code dir="auto">buffer.memory</code> 或缩小消息体；最隐蔽的是「静默丢弃」，批次因超过总时长上限被判定失败，但它<strong>可能已经写进了 Broker 的日志</strong>，调用方重试就会产生重复。难处理的原因是第三种状态：客户端报的是失败，Broker 那边却可能有数据，只能靠幂等机制去重（详见 <a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>）。</p>
+<p><strong>6. 自定义分区器的代价是什么？</strong></p>
+<p>答题骨架：见第二节。核心一句是：<strong>你放弃了官方对请求合并、负载均衡与版本兼容性的全部优化，并把「顺序性正确」从框架保证降级为自己的代码责任</strong>。最常见的错误实现是无 <code dir="auto">key</code> 时返回固定分区，会把单分区变成写入热点。</p>
+<p><strong>7. <code dir="auto">linger.ms=0</code> 是不是延迟最优？</strong></p>
+<p>答题骨架：这是版本陷阱题。<code dir="auto">linger.ms=0</code> 的「来一条发一条」语义<strong>只适用于 Kafka 4.0 之前的版本</strong>；Kafka 4.0 起默认值改为 5 毫秒，Kafka 4.x 上必须显式配置 0 才是即时发送。而且即使设为 0，也不等于「每条一个请求」：批次一满会立即触发发送。因此正确答法是「设为 0 去掉了主动等待，但实际发送时机仍由批次状态决定」。</p>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">Kafka 架构全景与角色分工</a>：分区、Leader、单 Leader 追加这些前提</li>
+<li><a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/Kafka%E7%94%9F%E4%BA%A7%E8%80%85%E7%B4%A2%E5%BC%95/">Kafka 生产者索引</a>：本主题索引页</li>
+<li><a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>：批量与压缩之后的可靠性阶梯，含重试导致的重复问题</li>
+<li><a href="/knowledge/Kafka/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/Kafka%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6%E7%B4%A2%E5%BC%95/">Kafka 存储机制索引</a>：顺序写与零拷贝，吞吐的另一半来源</li>
+<li><a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%A1%BA%E5%BA%8F%E6%B6%88%E8%B4%B9%E4%B8%8E%E7%A7%AF%E5%8E%8B%E5%A4%84%E7%90%86/">顺序消费与积压处理</a>：key 保序在消费侧要付的代价</li>
+<li><a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/Kafka%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84%E7%B4%A2%E5%BC%95/">Kafka 消费者与消费组索引</a>：消费侧如何反过来影响生产侧的配置选择</li>
+<li><a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/Kafka%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">Kafka 监控与排障</a>：缓冲池与批次的观测手段</li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#分区选择批量与压缩">分区选择、批量与压缩</a> </li><li class="toc-depth-3"> <a href="#一partitioner-如何决定目标分区">一、Partitioner 如何决定目标分区</a> </li><li class="toc-depth-3"> <a href="#二自定义分区器的代价">二、自定义分区器的代价</a> </li><li class="toc-depth-3"> <a href="#三消息-key-与顺序性的绑定关系">三、消息 key 与顺序性的绑定关系</a> </li><li class="toc-depth-3"> <a href="#四批量发送batchsize-与-lingerms-的权衡">四、批量发送：batch.size 与 linger.ms 的权衡</a> </li><li class="toc-depth-3"> <a href="#五压缩算法选择">五、压缩算法选择</a> </li><li class="toc-depth-3"> <a href="#六压缩与批量的耦合关系">六、压缩与批量的耦合关系</a> </li><li class="toc-depth-3"> <a href="#七面试高频追问">七、面试高频追问</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>

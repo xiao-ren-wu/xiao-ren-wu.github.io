@@ -1,0 +1,489 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>KRaft 协调与选主 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/KRaft%E5%8D%8F%E8%B0%83%E4%B8%8E%E9%80%89%E4%B8%BB/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="KRaft 协调与选主 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/KRaft%E5%8D%8F%E8%B0%83%E4%B8%8E%E9%80%89%E4%B8%BB/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Controller 挂了集群还能不能读写？分区 Leader 和 Controller Leader 是一回事吗？动态 Quorum 到底动态在哪？——这三个问题是 KRaft 面试的高频分水岭。角色边界的前置铺垫见 …"/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Controller 挂了集群还能不能读写？分区 Leader 和 Controller Leader 是一回事吗？动态 Quorum 到底动态在哪？——这三个问题是 KRaft 面试的高频分水岭。角色边界的前置铺垫见 …"/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/" aria-current="page">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">KRaft 协调与选主 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/">Kafka</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">Kafka</span></li><li><span class="tag">高可用与运维</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="kraft-协调与选主">KRaft 协调与选主</h2>
+<aside class="callout callout-info">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-5v-6m0-3h.01"></path></svg>来源</p>
+<p>基于 Kafka 4.x 官方文档整理，覆盖 KRaft 部署指南（Process Roles、Controllers、Provisioning、Controller membership changes、Static versus Dynamic KRaft Quorums、Debugging）与 Broker 配置参考。文中未标注「需实操验证」的结论可直接用于面试应答。
+本篇只写结构性事实。配置默认值仅在同时给出取值与适用版本处出现；其余配置的默认值随版本变化，以你所用版本的官方文档为准。</p>
+</aside>
+<p>Controller 挂了集群还能不能读写？分区 Leader 和 Controller Leader 是一回事吗？动态 Quorum 到底动态在哪？——这三个问题是 KRaft 面试的高频分水岭。角色边界的前置铺垫见 <a href="/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">Kafka 架构全景与角色分工</a>，指标与排障落地见 <a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/Kafka%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">Kafka 监控与排障</a>。</p>
+<h3 id="一kraft-为什么取代-zookeeper">一、KRaft 为什么取代 ZooKeeper</h3>
+<p><strong>Kafka 4.x 已移除 ZooKeeper，KRaft 是唯一的元数据协调模式。</strong> 替换的根因不是「RAFT 比某个旧协调器更先进」，而是<strong>元数据的存放位置变了</strong>：从「外部系统的私有协议」变成「Kafka 自己的一个内部主题」。</p>
+<p>带来的直接后果有两个：元数据天然获得 Kafka 已有的复制、持久化、快照能力，不必自研存储引擎；元数据可用性不再依赖跨系统的网络可达性，Controller 与 Broker 之间统一了协议与序列化格式。<strong>旧版与新版的逐项对比见本节末尾的旧版做法 callout</strong>——正文只讲 KRaft 本身。</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph quorum["KRaft Controller Quorum（投票成员）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">C1["Controller A&#x3C;br/>Active 或 hot standby"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">C2["Controller B"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">C3["Controller C"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C1 -->|"RAFT 多数派复制"| M["元数据日志 __cluster_metadata"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C2 --> M</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C3 --> M</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph brokers["Broker 集合（观察者）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">B1["Broker 1"] -->|"注册 / 心跳"| C1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">B2["Broker 2"] -->|"注册 / 心跳"| C1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">B3["Broker 3"] -->|"注册 / 心跳"| C1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">M -.->|"全量复制一份"| B1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">M -.->|"全量复制一份"| B2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">M -.->|"全量复制一份"| B3</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    subgraph quorum[&#x22;KRaft Controller Quorum（投票成员）&#x22;]        C1[&#x22;Controller A<br/>Active 或 hot standby&#x22;]        C2[&#x22;Controller B&#x22;]        C3[&#x22;Controller C&#x22;]    end    C1 -->|&#x22;RAFT 多数派复制&#x22;| M[&#x22;元数据日志 __cluster_metadata&#x22;]    C2 --> M    C3 --> M    subgraph brokers[&#x22;Broker 集合（观察者）&#x22;]        B1[&#x22;Broker 1&#x22;] -->|&#x22;注册 / 心跳&#x22;| C1        B2[&#x22;Broker 2&#x22;] -->|&#x22;注册 / 心跳&#x22;| C1        B3[&#x22;Broker 3&#x22;] -->|&#x22;注册 / 心跳&#x22;| C1    end    M -.->|&#x22;全量复制一份&#x22;| B1    M -.->|&#x22;全量复制一份&#x22;| B2    M -.->|&#x22;全量复制一份&#x22;| B3"><div></div></button></div></figure></div>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>旧版做法（ZooKeeper 时代）</p>
+<p><strong>元数据存放</strong>：旧版本把 topic、broker、partition Leader、ACL 等元数据放在一套<strong>独立的 ZooKeeper 集群内存 + 快照</strong>里；KRaft 改为 <strong>Kafka 自己的元数据日志</strong> <code dir="auto">__cluster_metadata</code>。
+<strong>一致性协议</strong>：旧版用 ZooKeeper 自己的 Zab；KRaft 用 RAFT，Leader 追加 + 多数派复制。
+<strong>Broker 启动依赖</strong>：旧版要连 ZK、建 <code dir="auto">/brokers/ids/&#x3C;id></code> 之类的临时节点并注册 watcher；KRaft 只需 <code dir="auto">controller.quorum.bootstrap.servers</code>，再与 Active Controller 建连。
+<strong>权限模型</strong>：旧版用 ZooKeeper 自己的 ACL；KRaft 复用 Kafka 自己的 principal 与 ACL。
+<strong>组件数量</strong>：旧版是一套 ZooKeeper 集群（通常 3 或 5 台独立机器）；KRaft 是若干 Controller 节点，可与 Broker 合并部署。
+<strong>主控权获取</strong>：旧版 Controller 是每个 Broker 内的一个模块，通过竞争创建 <code dir="auto">/controller</code> 临时节点来争抢主控；KRaft 是独立进程的 Quorum 走 RAFT 选举。
+<strong>迁移约束</strong>：此机制为旧版，新版由 <strong>KRaft Controller Quorum + 元数据日志</strong> 整体替代。迁移<strong>必须经过一个桥接版本（bridge release）</strong>，不能把旧模式原地切到 KRaft；桥接版本与具体步骤以你所用版本的官方迁移文档为准。<strong>本 callout 仅用于维护存量系统时对照，新版设计请以正文各节为准。</strong></p>
+</aside>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>Kafka 为什么放弃 ZooKeeper？</strong> —— 根因是元数据一致性与持久化从「外部系统的内协议」下沉为「Kafka 自己的复制日志」。收益是统一复制/快照/分段机制、去掉两套权限体系、Broker 与协调层只需一套协议、并能把 Controller 拆成独立进程做资源隔离。</li>
+<li><strong>ZooKeeper 的写性能是瓶颈吗？</strong> —— 不是主要理由。ZK 的问题主要是架构耦合与运维成本：多一套集群、多一套升级节奏、多套 ACL 语义、两个网络故障域。元数据写入频率远低于消息写入频率。只答「ZK 写性能差」是把结论建立在错误前提上。</li>
+<li><strong>KRaft 引入的额外成本是什么？</strong> —— 三点：Controller 把全集群元数据放内存与磁盘（官方量级参考约 5GB 主内存 + 元数据目录 5GB 磁盘）；必须显式 <code dir="auto">kafka-storage.sh format</code>，否则可能选出缺失已提交数据的 leader；迁移是离线操作，必须经桥接版本。</li>
+<li><strong>为什么把 Controller 从 Broker 里独立出来？</strong> —— 数据面负载是磁盘/网络/页缓存/批量 IO，控制面负载是内存里的全集群元数据、周期快照与事件队列。混部时 Controller 的内存 GC 与快照 IO 直接干扰 Broker 请求延迟，因此官方把 <code dir="auto">broker,controller</code> 合并模式限定为开发环境。</li>
+</ol>
+</blockquote>
+<h3 id="二raft-的角色与术语">二、RAFT 的角色与术语</h3>
+<p>Controller Quorum 就是一组跑 RAFT 的成员。官方 Monitoring 文档给出的成员状态取值只有六个，可直接背：<code dir="auto">leader</code>（当前 Quorum Leader，承担元数据写入）、<code dir="auto">candidate</code>（正在发起选举）、<code dir="auto">voted</code>（已投票给某 candidate 但其尚未成为 leader）、<code dir="auto">follower</code>（正常跟随）、<code dir="auto">unattached</code>（刚启动尚未与 Quorum 建立状态同步）、<code dir="auto">observer</code>（非投票成员）。</p>
+<p><strong>关键认知：Kafka 里的 Broker 就是元数据 Quorum 的 observer。</strong> Broker 完整复制元数据日志（这样才能在 Controller 切换后无缝接管），但不投票、不可能成为 leader——因为它不是 voter。把它称为 observer，是理解后面所有故障域划分的起点。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">stateDiagram-v2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">[*] --> unattached : 进程启动</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">unattached --> observer : process.roles 含 broker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">unattached --> follower : process.roles=controller 且状态追平</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">follower --> candidate : 拉取 Leader 超过 election 超时</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">candidate --> leader : 获得多数派投票</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">candidate --> follower : 收到 Leader 的 AppendEntries</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">leader --> follower : 失去多数派心跳</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">observer --> observer : 持续接收元数据，不投票</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="stateDiagram-v2    [*] --> unattached : 进程启动    unattached --> observer : process.roles 含 broker    unattached --> follower : process.roles=controller 且状态追平    follower --> candidate : 拉取 Leader 超过 election 超时    candidate --> leader : 获得多数派投票    candidate --> follower : 收到 Leader 的 AppendEntries    leader --> follower : 失去多数派心跳    observer --> observer : 持续接收元数据，不投票"><div></div></button></div></figure></div>
+<p>三个必须分清的概念：**term（任期）**是单调递增的逻辑时钟，Leader 每次当选开启新 term，candidate 见更大 term 立即退回 follower；<strong>epoch</strong> 分为 Quorum 级的 <code dir="auto">Current Epoch</code> 与分区级的 <code dir="auto">leaderEpoch</code>（Leader 变更时递增）、<code dir="auto">partitionEpoch</code>（仅分区配置变更时递增）；<strong>commit / 高水位</strong>指条目被多数派复制后才算 commit，这是「已确认元数据不会丢」的核心。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>RAFT 的安全性来自多数派复制，还是来自 Leader？</strong> —— 来自多数派。任意两个多数派必有交集，所以条目一旦被某多数派持久化，之后选出的新 Leader 必然包含它。Leader 只是写入入口，挂掉不影响已提交数据。</li>
+<li><strong>Candidate 为什么不能只靠自己一票就成为 Leader？</strong> —— 那会退化成单点，网络隔离的假 Leader 无法被区分，就会出现双写。必须拿到超过半数、且不是从同一 Candidate 转授的投票。</li>
+<li><strong>Broker 作为 observer 落后会影响数据面吗？</strong> —— 落后不影响正确性，只影响它对最新元数据变更的感知。短期落后时它按缓存的 Leader 继续服务已知分区。官方也正因此要求移除 Controller 前先确认复制进度。</li>
+<li><strong>为什么元数据日志要用 Kafka 的存储引擎而不是单独做 KV？</strong> —— 三个收益：复用复制与快照机制，Controller 故障转移与数据面 Leader 切换在同一套设计哲学下；元数据变更是有序追加流，可像消费日志一样回放；共享段文件、稀疏索引、保留策略等已验证的工程实现。</li>
+</ol>
+</blockquote>
+<h3 id="三元数据日志记录什么怎么回放">三、元数据日志：记录什么、怎么回放</h3>
+<p>元数据日志的物理形态是名为 <code dir="auto">__cluster_metadata</code> 的内部分区，目录形如 <code dir="auto">metadata_log_dir/__cluster_metadata-0/</code>，内含普通段文件与 <code dir="auto">.checkpoint</code> 快照。记录分两类：注册表级（Broker 注册/注销、Topic 创建/删除、ACL 变更、Quorum 成员变更、特性版本变更）低频；分区级（分区 Leader 变更、副本集合变更、ISR 收缩/扩张、分区 epoch 推进）高频，在 Broker 故障与网络抖动时集中产生。</p>
+<p><strong>回放机制：新加入或重启的节点，从本地最新快照开始，向 Leader 拉取快照之后的所有 record 并逐条应用。</strong> 这与数据面的 follower 追赶是同一个套路。配套指标：<code dir="auto">kafka.server:type=MetadataLoader,name=HandleLoadSnapshotCount</code>（加载快照次数）、<code dir="auto">kafka.server:type=SnapshotEmitter,name=LatestSnapshotGeneratedBytes</code>（最新快照字节数）、<code dir="auto">kafka.server:type=SnapshotEmitter,name=LatestSnapshotGeneratedAgeMs</code>（距最新快照的毫秒数）、<code dir="auto">kafka.server:type=MetadataLoader,name=CurrentMetadataVersion</code>（当前生效元数据版本）。快照生成的触发条件是<strong>时间间隔上限与字节上限任一满足即生成</strong>，兼顾低流量集群不生成无意义快照与高流量集群限住回放窗口。</p>
+<p>用 <code dir="auto">kafka-metadata-shell.sh</code> 读一个快照，可直接看到分区级元数据的真实结构，<code dir="auto">leaderEpoch</code> 与 <code dir="auto">partitionEpoch</code> 并列出现正是第二节两个 epoch 概念的真实落点：</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">>> ls /</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">brokers  local  metadataQuorum  topicIds  topics</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">>> cat /topics/foo/0/data</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"partitionId" : 0,</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"topicId" : "5zoAlv-xEh9xRANKXt1Lbg",</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"replicas" : [ 1 ],</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"isr" : [ 1 ],</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"removingReplicas" : null,</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"addingReplicas" : null,</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"leader" : 1,</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"leaderEpoch" : 0,</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">"partitionEpoch" : 0</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code=">> ls /brokers  local  metadataQuorum  topicIds  topics>> cat /topics/foo/0/data{  &#x22;partitionId&#x22; : 0,  &#x22;topicId&#x22; : &#x22;5zoAlv-xEh9xRANKXt1Lbg&#x22;,  &#x22;replicas&#x22; : [ 1 ],  &#x22;isr&#x22; : [ 1 ],  &#x22;removingReplicas&#x22; : null,  &#x22;addingReplicas&#x22; : null,  &#x22;leader&#x22; : 1,  &#x22;leaderEpoch&#x22; : 0,  &#x22;partitionEpoch&#x22; : 0}"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>元数据日志和普通数据分区有什么本质区别？</strong> —— 三点：它有且只有一个副本集（Quorum 成员），不是 N 副本；它没有 <code dir="auto">acks</code> 这类客户端侧配置，写入路径由 RAFT 多数派语义固定；保留策略由快照接管，不会无限增长。</li>
+<li><strong>为什么取消自动格式化存储目录？</strong> —— 官方理由是自动格式化会掩盖错误状态。若多数 Controller 的日志目录为空，它们会认为日志为空而掌握全部历史，从而选出一个缺失已提交数据的 leader，导致已确认元数据凭空消失。</li>
+<li><strong>快照会丢数据吗？</strong> —— 不会丢已提交数据。快照是「把截至某 offset 的元数据状态取物化副本」，与日志中对应 offset 之前的记录等价。丢的是回放所需的中间过程，不是状态本身。</li>
+<li><strong>元数据日志积压（MaxFollowerLag 高）要紧吗？</strong> —— 单个 follower 落后只要 Active Leader 仍是多数派成员就不影响主控权。真正要处理的是它持续增长，通常意味着某 Controller 网络或磁盘异常，会成为下次切换的隐患节点。</li>
+</ol>
+</blockquote>
+<h3 id="四controller-quorum-与引导选举">四、Controller Quorum 与引导选举</h3>
+<p><strong>规模选择是纯算术题：官方明确说明要承受 N 个并发故障，Controller 数量必须满足 2N+1。</strong> 因此 1 个容忍 0 个故障、3 个容忍 1 个、5 个容忍 2 个、7 个容忍 3 个。每个 Controller 节点的角色是<strong>要么 Active，要么 hot standby</strong>，多数派存活即可保持可用。关键配置全部是 <code dir="auto">Update Mode: read-only</code>（改完需重启）：<code dir="auto">node.id</code>（KRaft 下必填）、<code dir="auto">process.roles</code>、<code dir="auto">controller.quorum.voters</code>（KRaft 版本 1 起被废弃）、<code dir="auto">controller.quorum.bootstrap.servers</code>、<code dir="auto">controller.listener.names</code>、<code dir="auto">metadata.log.dir</code>。</p>
+<p><code dir="auto">controller.quorum.bootstrap.servers</code> 的定位值得单独强调：官方明确说它的<strong>作用很像客户端的 <code dir="auto">bootstrap.servers</code>——不需要列出全部 Controller，但应尽可能列全</strong>，以保证所有节点都能定位到 Quorum。这是它与 <code dir="auto">controller.quorum.voters</code> 最重要的语义差别：后者必须完整列举且静态不变，前者是「够用即可」的引导地址集合，且<strong>每个 broker 与 controller 都必须配置</strong>。<code dir="auto">metadata.log.dir</code> 不配置时落在 <code dir="auto">log.dirs</code> 的第一个目录，生产环境应显式分开，让元数据目录有独立的容量与 IO 预算。</p>
+<p><strong>两个决定故障域宽窄的超时（<code dir="auto">read-only</code>）：</strong> <code dir="auto">controller.quorum.election.timeout.ms</code> 在 Kafka 4.x 默认值 1000（1 秒），语义是成员拉取 Leader 失败超过该时长后成为 candidate；<code dir="auto">controller.quorum.fetch.timeout.ms</code> 在 Kafka 4.x 默认值 2000（2 秒），语义是 Leader 收不到多数派 fetch / fetchSnapshot 超过该时长后主动退位。两者的<strong>比例关系</strong>才是设计要点：fetch 超时必须大于 election 超时，Leader 才有时间完成一轮心跳往返，否则正常抖动也会被误判为 Leader 失效。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">sequenceDiagram</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant A as Controller A</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant B as Controller B</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant C as Controller C</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over A: Current Leader = -1，无主控</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A->>A: 拉取 Leader 超过 election 超时</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A->>B: RequestVote（term = t+1）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B-->>A: 同意（自身日志足够新）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A->>C: RequestVote（term = t+1）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C-->>A: 同意</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over A: 拿到多数派，Current Epoch 推进</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A->>B: AppendEntries（含 prevLogIndex / prevLogTerm）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A->>C: AppendEntries</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B-->>A: AppendEntriesResponse 一致</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C-->>A: AppendEntriesResponse 一致</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over A,C: 高水位推进，元数据写入恢复</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="sequenceDiagram    participant A as Controller A    participant B as Controller B    participant C as Controller C    Note over A: Current Leader = -1，无主控    A->>A: 拉取 Leader 超过 election 超时    A->>B: RequestVote（term = t+1）    B-->>A: 同意（自身日志足够新）    A->>C: RequestVote（term = t+1）    C-->>A: 同意    Note over A: 拿到多数派，Current Epoch 推进    A->>B: AppendEntries（含 prevLogIndex / prevLogTerm）    A->>C: AppendEntries    B-->>A: AppendEntriesResponse 一致    C-->>A: AppendEntriesResponse 一致    Note over A,C: 高水位推进，元数据写入恢复"><div></div></button></div></figure></div>
+<p>选举安全性靠两道检查而非投票本身：<strong>投票前置条件</strong>要求 candidate 日志至少和接收方一样新（先比 lastLogTerm 再比 lastLogIndex），保证新 leader 拥有全部已提交记录；<strong>日志匹配检查</strong>由 Leader 的 AppendEntries 携带 <code dir="auto">prevLogIndex</code> / <code dir="auto">prevLogTerm</code>，follower 不匹配就拒绝、Leader 回退重试，保证 epoch 不会在同一位点冲突。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>一个 Controller 重启会导致集群不可用吗？</strong> —— 不会，只要多数派存活。3 个 Controller 重启 1 个仍是 2 个存活，Quorum 可用且<strong>不发生选举</strong>。Quorum 会等它从快照 + 增量追平，期间 MaxFollowerLag 升高。</li>
+<li><strong>什么情况下会发生选举（哪怕 Controller 都没挂）？</strong> —— 两类：Leader 侧收不到多数派 fetch 超过 <code dir="auto">fetch.timeout.ms</code> 主动退位；follower 侧拉取 Leader 超过 <code dir="auto">election.timeout.ms</code> 发起选举。都是超时驱动，所以网络分区是主要触发源，观测点是 <code dir="auto">kafka.server:type=raft-metrics</code> 的 Election Latency。</li>
+<li><strong>网络分区时会不会出现两个 Leader？</strong> —— 不会。两道多数派检查挡住了：互不通信的两个多数派不可能同时存在。分区侧唯一「多出来」的是 candidate 状态，它会在超时内反复尝试投票后退回 follower，用 <code dir="auto">Current Voted</code> 观测（未投票时为 -1）。</li>
+<li><strong>为什么用「热备」而不是「主备切换」描述 Controller？</strong> —— 因为切换无需人工介入也无需外部协调，follower 一直在被动接收 AppendEntries，一旦 Leader 消失只需一次投票就能接任，<strong>没有需要转移的状态</strong>——状态就在日志里。</li>
+</ol>
+</blockquote>
+<h3 id="五任期与-epochfencing-的真正机制">五、任期与 epoch：fencing 的真正机制</h3>
+<p><strong>关键认知：Kafka 的 fencing 不靠外部票据，靠 term 与 epoch 的单调性。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">概念</th><th align="left">归属</th><th align="left">作用</th><th align="left">官方指标</th></tr></thead><tbody><tr><td align="left"><code dir="auto">Current Epoch</code></td><td align="left">Quorum 级</td><td align="left">每次成功选举推进，是写权限凭据</td><td align="left"><code dir="auto">kafka.server:type=raft-metrics</code></td></tr><tr><td align="left"><code dir="auto">leaderEpoch</code></td><td align="left">分区级</td><td align="left">Leader 变更时推进，标识 Leader 世代</td><td align="left"><code dir="auto">kafka-metadata-shell.sh</code> 读快照可见</td></tr><tr><td align="left"><code dir="auto">partitionEpoch</code></td><td align="left">分区级</td><td align="left">仅分区配置变更时推进</td><td align="left">同上</td></tr><tr><td align="left"><code dir="auto">Current Leader</code> / <code dir="auto">High Watermark</code></td><td align="left">Quorum 级</td><td align="left">未知时均为 -1</td><td align="left">同上</td></tr></tbody></table></div>
+<p>三层防护的具体形态：<strong>Quorum 层</strong>拒绝旧 term 的写入——被隔离的旧 Leader 恢复后，follower 因看到更大 term 而拒绝其 AppendEntries；<strong>分区层</strong>用 <code dir="auto">leaderEpoch</code> 拒绝旧世代请求——客户端与 follower 带上自己知道的 epoch，Leader 换过则旧 epoch 请求被拒绝而非被错误接受；<strong>配置层</strong>用 <code dir="auto">partitionEpoch</code> 拒绝过期变更——一批副本移动请求若跨越 Leader 变更会因 epoch 不匹配被丢弃，避免执行基于陈旧视图的变更。</p>
+<p><code dir="auto">kafka-metadata-quorum.sh describe --status</code> 把这些概念一次摊开：</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ClusterId:              fMCL8kv1SWm87L_Md-I2hg</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">LeaderId:               3002</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">LeaderEpoch:            2</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">HighWatermark:          10</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">MaxFollowerLag:         0</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">MaxFollowerLagTimeMs:   -1</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">CurrentVoters:          [{"id": 3000, "directoryId": "ILZ5MPTeRWakmJu99uBJCA", ...}, ...]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">CurrentObservers:       [{"id": 0, "directoryId": "3Db5QLSqSZieL3rJBUUegA"}, ...]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="ClusterId:              fMCL8kv1SWm87L_Md-I2hgLeaderId:               3002LeaderEpoch:            2HighWatermark:          10MaxFollowerLag:         0MaxFollowerLagTimeMs:   -1CurrentVoters:          [{&#x22;id&#x22;: 3000, &#x22;directoryId&#x22;: &#x22;ILZ5MPTeRWakmJu99uBJCA&#x22;, ...}, ...]CurrentObservers:       [{&#x22;id&#x22;: 0, &#x22;directoryId&#x22;: &#x22;3Db5QLSqSZieL3rJBUUegA&#x22;}, ...]"><div></div></button></div></figure></div>
+<p><strong>排障时先看 <code dir="auto">LeaderId</code> 是不是 -1，再看 <code dir="auto">MaxFollowerLag</code> 是否持续增长。</strong> 前者说明无主控，后者说明有节点掉队。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>fencing 到底防住了什么？</strong> —— 防住陈旧写入。分布式系统最难处理的问题之一是「已失去 leadership 的组件慢一拍地执行了它此前计划的写操作」。RAFT 把 fencing token 内嵌进协议本身，旧 term 的一切消息在协议层就被拒绝，不需要额外的锁服务或租约中心。</li>
+<li><strong>只用 term 一个 epoch 不够吗？</strong> —— 不够。term 是 Quorum 级全局变量，一次选举推进一次；分区 Leader 可能因网络抖动在<strong>同一 term 内</strong>多次变更。<code dir="auto">leaderEpoch</code> 提供分区粒度的世代标识，粒度更细。</li>
+<li><strong><code dir="auto">HighWatermark</code> 一直不变说明什么？</strong> —— 稳态下正常。<strong>持续不变且 MaxFollowerLag 同时增长</strong>才是异常：Leader 没推进高水位，follower 却在拉取。前者查 Leader 事件队列与磁盘，后者查网络与磁盘 IO。</li>
+<li><strong>Controller 的 term 变化会影响数据面吗？</strong> —— 间接但有限。term 变化意味着可能发生分区 Leader 重新分配，新任 Active Controller 会按当前 Broker 存活状况重算 preferred leader。数据不丢（RAFT + ISR 双重安全性），但分区级写入延迟会有一次抖动。</li>
+</ol>
+</blockquote>
+<h3 id="六broker-注册与心跳两个独立的故障域">六、Broker 注册与心跳：两个独立的故障域</h3>
+<p><strong>本篇最容易被讲错的地方：Controller Quorum 的可用性与 Broker 集合的可用性，是两件独立的事。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">故障域</th><th align="left">成员</th><th align="left">机制</th><th align="left">掉线后果</th><th align="left">关键指标</th></tr></thead><tbody><tr><td align="left"><strong>控制面</strong></td><td align="left">Controller Quorum（voter）</td><td align="left">RAFT AppendEntries + fetch</td><td align="left">跌破多数派 → 无 Active Controller</td><td align="left"><code dir="auto">Current State</code> / <code dir="auto">Current Leader</code> / <code dir="auto">Current Epoch</code></td></tr><tr><td align="left"><strong>数据面</strong></td><td align="left">Broker 集合（observer）</td><td align="left">向 Active Controller 发送注册与心跳，Controller 下发元数据</td><td align="left">该 Broker 负责的分区失去 Leader 或副本不足</td><td align="left"><code dir="auto">LeaderCount</code> / <code dir="auto">OfflineReplicaCount</code> / <code dir="auto">UnderReplicatedPartitions</code></td></tr></tbody></table></div>
+<p><strong>Broker 掉线时 Controller 做三件事</strong>：把它负责的分区从 ISR 中摘除；为失去 Leader 的分区在存活副本中选出新 Leader；更新分区级元数据并追加到元数据日志。<strong>Controller 掉线时数据面的行为</strong>：Broker 仍持有完整元数据日志副本，能继续服务元数据未变化的分区，所以「Controller 不可用」不等于「数据读不了」。</p>
+<p>观测这个通道用 <code dir="auto">kafka.controller:type=ControllerChannelManager,name=RequestRateAndQueueTimeMs,brokerId=N</code>，官方定义为「Controller 从指定 Broker 的请求队列取请求的速率，以及请求在该队列中的停留时间」，配套还有 <code dir="auto">kafka.controller:type=KafkaController,name=ActiveControllerCount</code>（官方定义为取值 0 或 1，全集群只应有一个节点为 1）。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart LR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph control["控制面（投票成员）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">V1["Controller 1"] &#x3C;--> V2["Controller 2"] &#x3C;--> V3["Controller 3"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph data["数据面（观察者）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">O1["Broker 1"] -->|"注册 / 心跳"| V1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">O2["Broker 2"] -->|"注册 / 心跳"| V1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">O3["Broker 3"] -->|"注册 / 心跳"| V1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">O1 -.->|"副本同步"| O2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">O2 -.->|"副本同步"| O3</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart LR    subgraph control[&#x22;控制面（投票成员）&#x22;]        V1[&#x22;Controller 1&#x22;] <--> V2[&#x22;Controller 2&#x22;] <--> V3[&#x22;Controller 3&#x22;]    end    subgraph data[&#x22;数据面（观察者）&#x22;]        O1[&#x22;Broker 1&#x22;] -->|&#x22;注册 / 心跳&#x22;| V1        O2[&#x22;Broker 2&#x22;] -->|&#x22;注册 / 心跳&#x22;| V1        O3[&#x22;Broker 3&#x22;] -->|&#x22;注册 / 心跳&#x22;| V1    end    O1 -.->|&#x22;副本同步&#x22;| O2    O2 -.->|&#x22;副本同步&#x22;| O3"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>Broker 注册失败会导致它承载的分区数据丢失吗？</strong> —— 不会。只要其他副本存活，Controller 会选出新 Leader。注册失败意味着新元数据变更无法下发到这个 Broker，以及它被判定掉线后无法自动恢复。丢失风险只来自「唯一副本」这种退化配置，那是配置问题不是协议问题。</li>
+<li><strong>为什么 Controller Quorum 应该与 Broker 分散部署？</strong> —— 故障域要独立。合并模式下一次机器故障同时打掉一个 voter 和多个 Broker，控制面与数据面的冗余度被同一事件同时消耗。</li>
+<li><strong><code dir="auto">controller.quorum.bootstrap.servers</code> 只配部分节点会怎样？</strong> —— 官方说明它不需要列出全部 Controller，作用类似 <code dir="auto">bootstrap.servers</code>，但应尽可能列全；完全不知道任何地址的节点无法加入 Quorum。已加入的成员之间会通过元数据日志互相学到其它 voter。</li>
+<li><strong>热备 Controller 会不会浪费资源？</strong> —— 协调层不浪费，只有 Active Controller 承担事件处理与快照生成。成本是内存与元数据日志目录的磁盘副本（官方量级参考 5GB / 5GB），换来<strong>等于一次选举时间的切换速度</strong>，因为切换不需要重新加载任何状态。</li>
+</ol>
+</blockquote>
+<h3 id="七controller-不可用时的系统边界">七、Controller 不可用时的系统边界</h3>
+<p><strong>结论先行：Controller 全部不可用时，集群不是「完全不可用」，而是从「可写可管」退化为「按最后一次已知元数据继续服务数据面」。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">能力</th><th align="left">Controller 不可用时</th><th align="left">原因</th></tr></thead><tbody><tr><td align="left">已有分区的数据读取</td><td align="left"><strong>可用</strong></td><td align="left">只需知道分区 → Leader 映射</td></tr><tr><td align="left">已有分区的数据写入</td><td align="left"><strong>可用</strong></td><td align="left">Leader 已在 Broker 上</td></tr><tr><td align="left">Consumer 位点提交</td><td align="left"><strong>可用</strong></td><td align="left"><code dir="auto">__consumer_offsets</code> 走数据面复制，不经元数据日志</td></tr><tr><td align="left">Leader 故障后的分区切换</td><td align="left"><strong>不可用</strong></td><td align="left">选新 Leader 必须由 Controller 执行</td></tr><tr><td align="left">创建 / 删除 Topic、扩分区</td><td align="left"><strong>不可用</strong></td><td align="left">分区级元数据变更必须写元数据日志</td></tr><tr><td align="left">副本重分配、动态 topic 配置变更</td><td align="left"><strong>不可用</strong></td><td align="left">同上</td></tr><tr><td align="left">ACL 变更、Broker 增删</td><td align="left"><strong>不可用</strong></td><td align="left">注册表级元数据变更</td></tr></tbody></table></div>
+<p><strong>数据面的稳态路径不依赖 Controller，元数据变更路径完全依赖 Controller。</strong> 这也解释了「Controller 挂了集群就完全不可用吗」为什么答案是「不是」——真正的不可用发生在<strong>故障叠加</strong>时：Controller 无主控的同时恰好又有 Broker 挂掉，它负责的分区无法选出新 Leader，数据面才开始真正不可写。<strong>单点故障不致命，故障叠加才致命。</strong></p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>Controller 挂了集群就完全不可用吗？</strong> —— 不是，分三类看。已建立的数据面读写继续可用，位点提交也可用；所有元数据变更不可用（建删 Topic、扩分区、副本重分配、ACL、动态配置、Broker 上下线）；<strong>自愈能力失效</strong>——此时若再发生 Broker 故障，受影响分区无法选新 Leader。准确表述是：Controller 不可用把系统从「自愈」降级为「维持现状」，本身不立即造成不可用，但移除了故障自愈能力。</li>
+<li><strong>Controller 恢复后需要人工做些什么？</strong> —— 通常不需要，恢复是自动的（新成员从本地快照拉增量追平）。唯一需人工确认的是「刚做过的变更是否已提交」——若故障发生在变更已发起但未 commit 的窗口期，要用 <code dir="auto">kafka-metadata-shell.sh</code> 或 <code dir="auto">kafka-dump-log.sh --cluster-metadata-decoder</code> 核对元数据日志末尾状态，而不是凭操作记忆判断。</li>
+<li><strong>Controller 不可用期间集群会不会把磁盘打满？</strong> —— 不会无限增长。写入仍受 retention 与分区数限制，清理器是数据面组件独立于元数据日志照常工作。受影响的是<strong>能否新增分区或 Topic 来扩容</strong>。</li>
+<li><strong>这种「降级可用」能作为设计目标吗？</strong> —— 不能，只能当故障窗口。它会积累「无法自愈」的脆弱性，每次 Broker 故障都让更多分区失去自愈能力。所以必须对 <code dir="auto">ActiveControllerCount</code> 全集群求和设硬告警（全集群应有且仅有 1），并对 <code dir="auto">Current Leader = -1</code> 设告警，目标是<strong>把故障窗口压到足够短</strong>。</li>
+</ol>
+</blockquote>
+<h3 id="八静态配置与动态配置">八、静态配置与动态配置</h3>
+<p><strong>先分清两个完全不同维度的「静态 / 动态」，混在一起是常见错误。</strong></p>
+<p><strong>维度一：Quorum 成员是静态还是动态。</strong> <code dir="auto">kraft.version</code> 这个<strong>特性版本</strong>决定成员管理方式：取值 0 或未设置为<strong>静态</strong>，成员必须完整写在每个 broker 与 controller 的 <code dir="auto">controller.quorum.voters</code> 里，变更需改配置 + 重启全部节点；取值 1 及以上为<strong>动态</strong>，启动时给 <code dir="auto">controller.quorum.bootstrap.servers</code>，运行期由元数据日志中的 voter 集合决定，用 <code dir="auto">kafka-metadata-quorum.sh</code> 在线增删。<strong>官方明确说明：静态还是动态在 format 那一刻决定</strong>——判据是格式化时若 <code dir="auto">controller.quorum.voters</code> 不存在、且指定了 <code dir="auto">--standalone</code>、<code dir="auto">--initial-controllers</code>、<code dir="auto">--no-initial-controllers</code> 三者之一，则格式化为动态。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">命令</th><th align="left">场景</th><th align="left">结果</th></tr></thead><tbody><tr><td align="left"><code dir="auto">format --cluster-id &#x3C;ID> --standalone --config &#x3C;f></code></td><td align="left">引导第一个 Controller</td><td align="left">写 <code dir="auto">meta.properties</code>（含随机 <code dir="auto">directory.id</code>），生成只含本节点为唯一 voter 的 <code dir="auto">00000000000000000000-0000000000.checkpoint</code>（内含 <code dir="auto">KRaftVersionRecord</code> 与 <code dir="auto">VotersRecord</code>）</td></tr><tr><td align="left"><code dir="auto">format --cluster-id &#x3C;ID> --initial-controllers "0@h0:1234:&#x3C;UUID>,..." --config &#x3C;f></code></td><td align="left">一次引导多个 Controller</td><td align="left">同一 cluster id 下所有 Controller 必须传<strong>完全相同</strong>的参数，checkpoint 中的 <code dir="auto">VotersRecord</code> 包含全部 Controller</td></tr><tr><td align="left"><code dir="auto">format --cluster-id &#x3C;ID> --config &#x3C;f> --no-initial-controllers</code></td><td align="left">加入<strong>已存在</strong>集群的新节点</td><td align="left">不写初始 voter 集合，作为新成员加入</td></tr></tbody></table></div>
+<p><code dir="auto">--initial-controllers</code> 的副本描述格式是 <code dir="auto">replicaId@host:port:directoryId</code>，如 <code dir="auto">0@controller-0:1234:3Db5QLSqSZieL3rJBUUegA</code>，四项依次是副本 ID、目录 ID、主机、端口。<strong>动态 Quorum 增员必须严格按官方四步</strong>：<code dir="auto">format --no-initial-controllers</code> → 启动新 Controller → <code dir="auto">kafka-metadata-quorum.sh describe --replication</code> 观察复制追平 → <strong>追平后</strong>才 <code dir="auto">add-controller</code>。减员有一条易被忽略的硬约束：<strong>官方建议先把待移除 Controller shutdown，再执行 <code dir="auto">remove-controller</code></strong>，原因是 KIP-996 的 Pre-vote 尚未实现，停机可让该节点彻底从 Quorum 通信中消失，避免多轮无谓选举。</p>
+<p><strong>维度二：Broker 配置项能否在线改。</strong> <code dir="auto">Update Mode</code> 分三档：<code dir="auto">read-only</code>（必须重启）、<code dir="auto">per-broker</code>（按 Broker 粒度动态更新）、<code dir="auto">cluster-wide</code>（可作集群级默认值动态更新，也可单独设某 Broker 的值）。<strong><code dir="auto">node.id</code>、<code dir="auto">process.roles</code>、<code dir="auto">controller.quorum.voters</code>、<code dir="auto">controller.quorum.bootstrap.servers</code>、<code dir="auto">controller.listener.names</code>、<code dir="auto">metadata.log.dir</code>、<code dir="auto">metadata.log.segment.bytes</code>、两个 Quorum 超时——全部是 <code dir="auto">read-only</code>。</strong></p>
+<p><strong>可动态更新的默认 topic 配置（官方完整清单 25 项）：</strong> <code dir="auto">log.segment.bytes</code>、<code dir="auto">log.roll.ms</code>、<code dir="auto">log.roll.hours</code>、<code dir="auto">log.roll.jitter.ms</code>、<code dir="auto">log.roll.jitter.hours</code>、<code dir="auto">log.index.size.max.bytes</code>、<code dir="auto">log.flush.interval.messages</code>、<code dir="auto">log.flush.interval.ms</code>、<code dir="auto">log.retention.bytes</code>、<code dir="auto">log.retention.ms</code>、<code dir="auto">log.retention.minutes</code>、<code dir="auto">log.retention.hours</code>、<code dir="auto">log.index.interval.bytes</code>、<code dir="auto">log.cleaner.delete.retention.ms</code>、<code dir="auto">log.cleaner.min.compaction.lag.ms</code>、<code dir="auto">log.cleaner.max.compaction.lag.ms</code>、<code dir="auto">log.cleaner.min.cleanable.ratio</code>、<code dir="auto">log.cleanup.policy</code>、<code dir="auto">log.segment.delete.delay.ms</code>、<code dir="auto">unclean.leader.election.enable</code>、<code dir="auto">min.insync.replicas</code>、<code dir="auto">max.message.bytes</code>、<code dir="auto">compression.type</code>、<code dir="auto">log.preallocate</code>、<code dir="auto">log.message.timestamp.type</code>。其中 <strong><code dir="auto">log.retention.hours</code> 在 Kafka 4.x 默认值 168 小时（7 天）</strong>，<code dir="auto">min.insync.replicas</code> 在 Kafka 4.x 默认值 1（只等 Leader 一份确认就返回，这也是它常被建议调高的原因）。<code dir="auto">unclean.leader.election.enable</code> 本篇只写语义（是否允许不同步的副本成为 Leader），<strong>默认值随版本变化，以你所用版本的官方文档为准</strong>。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong><code dir="auto">log.retention.hours</code> 改了为什么没立即生效？</strong> —— 它可动态更新，但清理器按自己的节奏扫描，不是配置一改就立刻删数据。<code dir="auto">log.segment.delete.delay.ms</code> 控制段被标记删除后延迟多久物理删除。正确预期是：变更影响后续段滚动与清理判定，已存在的段要等清理器扫到。</li>
+<li><strong>动态更新某个 topic 的配置会不会影响其他 topic？</strong> —— 取决于变更层级。<code dir="auto">--entity-type topics --entity-name &#x3C;topic></code> 改的是该 topic 的覆盖值，<code dir="auto">--entity-type brokers</code> 改的是集群默认值，<strong>未设置覆盖值的 topic 跟随集群默认值</strong>。改之前先用 <code dir="auto">--describe</code> 确认当前实际生效值。</li>
+<li><strong>为什么元数据相关配置全是 <code dir="auto">read-only</code>？</strong> —— 它们在启动时就被用于确定节点身份与 Quorum 连接方式。<code dir="auto">node.id</code> 决定自己在元数据日志中的身份，运行期改等于让同一节点以两个身份同时存在；<code dir="auto">controller.quorum.bootstrap.servers</code> 决定启动期如何定位 Quorum。</li>
+<li><strong>从静态 Quorum 迁到动态 Quorum 要做什么？</strong> —— 官方路径是<strong>先升级特性版本再改配置</strong>：<code dir="auto">kafka-features.sh upgrade --feature kraft.version=1</code>，确认 <code dir="auto">describe</code> 的 <code dir="auto">FinalizedVersionLevel</code> 已变为 1，然后从所有节点移除 <code dir="auto">controller.quorum.voters</code>、加入 <code dir="auto">controller.quorum.bootstrap.servers</code>。顺序反了会错配。</li>
+</ol>
+</blockquote>
+<h3 id="九两处leader必须分清">九、两处「Leader」必须分清</h3>
+<p>Kafka 里有两个完全不同的 Leader 概念，<strong>混淆它们是本主题最常见的表达错误</strong>。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">分区 Leader</th><th align="left">KRaft Controller Leader</th></tr></thead><tbody><tr><td align="left">存在数量</td><td align="left"><strong>每个分区一个</strong>，全集群成千上万个</td><td align="left"><strong>全集群一个</strong></td></tr><tr><td align="left">由谁选出</td><td align="left">数据面复制协议，按副本同步状态选择</td><td align="left">RAFT，按投票结果选择</td></tr><tr><td align="left">选举依据</td><td align="left">副本是否存活、是否在 ISR、是否为 preferred replica</td><td align="left">多数派投票 + 日志新旧比较</td></tr><tr><td align="left">作用</td><td align="left">处理该分区的 produce / fetch 请求</td><td align="left">写入元数据日志、发起分区 Leader 分配</td></tr><tr><td align="left">数据结构</td><td align="left">分区日志（<code dir="auto">.log</code> 段文件）</td><td align="left">元数据日志（<code dir="auto">__cluster_metadata</code>）</td></tr><tr><td align="left">切换触发</td><td align="left">Broker 故障、ISR 收缩、preferred leader 变化</td><td align="left">选举超时、Leader 收不到多数派心跳</td></tr><tr><td align="left">观测指标</td><td align="left"><code dir="auto">kafka.server:type=ReplicaManager,name=LeaderCount</code></td><td align="left"><code dir="auto">kafka.server:type=raft-metrics</code> 的 <code dir="auto">Current Leader</code></td></tr></tbody></table></div>
+<p><strong>两者的关系必须分两层说，混淆「发起方」与「执行方」是这里最容易讲错的地方。</strong></p>
+<p><strong>第一层：Controller 不在数据路径上。</strong> 它不代理 produce / fetch 请求，也不参与消息读写。分区 Leader 一旦确定，就在 Broker 上直接服务客户端，Controller 只在旁路。</p>
+<p><strong>第二层：但分区 Leader 的「任免」由 Controller 发起。</strong> Controller 计算出某个分区应该由哪个 Broker 当 Leader，把结论写进元数据日志；各 Broker 完整复制了元数据日志，读到这条变更后把自己置为该分区的 Leader。<strong>KRaft 没有 Broker 自行选主的路径</strong>——Broker 不会因为同伴失联就自行顶上。</p>
+<p>由此推出三条结论：</p>
+<ol>
+<li><strong>Controller 不可用时，已在服务的分区继续正常读写</strong>——它们的 Leader 已经在 Broker 上运行，不需要 Controller 参与。</li>
+<li><strong>但 Leader 故障后的切换不可用。</strong> 没有 Active Controller 就没有人计算并下发新的 Leader 分配，受影响分区会停在「无 Leader」状态直到控制面恢复。这正是第七节表格里那一行的由来。</li>
+<li><strong>扩副本、换副本、下线 Broker 也必须等 Controller</strong>，因为这些变更本身就是「变更副本集合」，必须先写元数据日志。</li>
+</ol>
+<p>两处选举的<strong>安全性基础不同</strong>：Controller Leader 由 RAFT 多数派保证唯一；分区 Leader 由 ISR 语义保证（正常情况只能从 ISR 内选）。<strong>两条路径都遵守「超时不丢安全性」</strong>——不允许靠超时选出一个会丢数据的 Leader，除非显式打开非同步选举。</p>
+<p>补充一个官方细节：非同步 Leader 选举在 KRaft 模式下由<strong>专门的 unclean leader election 线程</strong>定期触发，<strong>默认周期 5 分钟</strong>。若 <code dir="auto">unclean.leader.election.enable</code> 是动态改上去的，配置生效要等该线程下一轮触发；需要立即生效时用 <code dir="auto">kafka-leader-election.sh --election-type unclean</code> 手动触发。<strong>这个 5 分钟窗口就是「Leader 挂了却迟迟不选新 Leader」的常见解释</strong>——很多人在这里误判为故障，实际是等待线程周期。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">CL["KRaft Controller Leader&#x3C;br/>全集群 1 个"] -->|"写入元数据日志：&#x3C;br/>分区 P 的 leader 应为 Broker 3"| ML["__cluster_metadata"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">ML -->|"Broker 3 读到元数据变更"| L3["分区 P 的 Leader = Broker 3"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">L3 -->|"处理 produce / fetch"| C2["客户端"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">X1["分区 Q Leader = Broker 1"] --> C2</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    CL[&#x22;KRaft Controller Leader<br/>全集群 1 个&#x22;] -->|&#x22;写入元数据日志：<br/>分区 P 的 leader 应为 Broker 3&#x22;| ML[&#x22;__cluster_metadata&#x22;]    ML -->|&#x22;Broker 3 读到元数据变更&#x22;| L3[&#x22;分区 P 的 Leader = Broker 3&#x22;]    L3 -->|&#x22;处理 produce / fetch&#x22;| C2[&#x22;客户端&#x22;]    X1[&#x22;分区 Q Leader = Broker 1&#x22;] --> C2"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>分区 Leader 一定在 ISR 里吗？</strong> —— 正常情况是，KRaft 的分区 Leader 只能从 ISR 中选择。例外是开了非同步 Leader 选举：允许从不同步副本中选，会丢数据。这正是 <code dir="auto">unclean.leader.election.enable</code> 的全部风险，观测点 <code dir="auto">kafka.controller:type=ControllerStats,name=UncleanLeaderElectionsPerSec</code> 官方正常值是 0，<strong>非 0 就是数据可能已丢的信号</strong>。</li>
+<li><strong><code dir="auto">LeaderCount</code> 应该是多少？</strong> —— 等于全集群分区总数，且应均匀分布在各 Broker。不均说明副本分布有问题或 preferred leader 未被采纳（看 <code dir="auto">kafka.controller:type=KafkaController,name=PreferredReplicaImbalanceCount</code>）。官方对 <code dir="auto">LeaderCount</code> 与 <code dir="auto">PartitionCount</code> 标注的正常值都是「大致均匀分布」。</li>
+<li><strong>Controller Leader 切换期间会影响正在写的分区吗？</strong> —— 不会中断写入，但会造成一次副本层面抖动。新任 Controller 会按当前 Broker 状况重算 preferred leader，不可用就触发分区 Leader 变更。数据不丢，但客户端可能短暂重试。要区分「抖动一次就恢复」和「持续抖动」——后者说明副本健康度有问题。</li>
+<li><strong>为什么 <code dir="auto">ActiveControllerCount</code> 要全集群求和而非逐节点看？</strong> —— 正常态全集群有且仅有 1 个节点为 1、其余为 0。逐节点看无法区分「我在热备（正常）」和「Active 挂了（异常）」。求和等于 0 是 P0，等于 2 是脑裂信号，等于 1 但频繁跳变是选举抖动。</li>
+</ol>
+</blockquote>
+<h3 id="十故障场景与成员变更">十、故障场景与成员变更</h3>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">场景</th><th align="left">控制面表现</th><th align="left">数据面表现</th><th align="left">可用性</th><th align="left">处置动作</th></tr></thead><tbody><tr><td align="left">单个 Controller 重启</td><td align="left"><code dir="auto">MaxFollowerLag</code> 升高，<strong>不选举</strong></td><td align="left">无影响</td><td align="left">完全可用</td><td align="left">等追平确认为 0</td></tr><tr><td align="left">两个 Controller 同时不可用</td><td align="left">跌破多数派，<code dir="auto">Current Leader = -1</code></td><td align="left">读写继续但无法选新 Leader</td><td align="left">降级，<strong>自愈失效</strong></td><td align="left">立即恢复任一 Controller</td></tr><tr><td align="left">隔离单个 Controller</td><td align="left">频繁 candidate / leader 切换，Election Latency 升高</td><td align="left">分区 Leader 可能反复重算</td><td align="left">抖动</td><td align="left">查该节点网络</td></tr><tr><td align="left">单个 Broker 崩溃</td><td align="left"><code dir="auto">MetadataErrorCount</code> 不变</td><td align="left">其上 Leader 的分区需重选</td><td align="left">短暂抖动后恢复</td><td align="left">查 Broker 存活与日志目录</td></tr><tr><td align="left">Controller 与 Broker 同机</td><td align="left">该 voter 掉线</td><td align="left">该机上 Broker 全掉</td><td align="left">两面冗余同时被消耗</td><td align="left">拆分部署</td></tr><tr><td align="left">新 Controller 未追平就 add</td><td align="left">复制进度落后</td><td align="left">无影响</td><td align="left">视后续而定</td><td align="left">严格执行先追平再 add</td></tr><tr><td align="left">直接下线待移除 Controller</td><td align="left">可能触发无谓选举</td><td align="left">无影响</td><td align="left">抖动</td><td align="left">先 shutdown 再 remove-controller</td></tr></tbody></table></div>
+<p><strong>成员变更上，多数资料会把 RAFT 论文的机制直接套到 Kafka 上，这是错的。</strong> Raft 论文用 <strong>joint consensus</strong> 解决成员变更：先让「旧配置」与「新旧并集」同时生效、决策需两套配置各自多数派同意，再切到纯新配置，从而保证变更期间不存在两个互不相交的多数派。<strong>Kafka 的官方 KRaft 文档并没有描述 joint consensus 过渡配置</strong>，官方给出的路径是<strong>逐个增删 + 复制追平 + 移除时先停机</strong>：</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph official["Kafka 官方成员变更路径"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">S1["1. format --no-initial-controllers"] --> S2["2. 启动新 Controller"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">S2 --> S3["3. describe --replication 观察追平"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">S3 --> S4["4. 追平后执行 add-controller"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">S5["移除场景"] --> S6["先 shutdown 该 Controller"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">S6 --> S7["再执行 remove-controller"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph paper["RAFT 论文的 joint consensus（本集群未采用）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">P1["C_old 生效"] --> P2["C_old + C_new 共同生效"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">P2 --> P3["C_new 单独生效"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">S4 -.->|"对比：官方未描述过渡双配置"| P2</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    subgraph official[&#x22;Kafka 官方成员变更路径&#x22;]        S1[&#x22;1. format --no-initial-controllers&#x22;] --> S2[&#x22;2. 启动新 Controller&#x22;]        S2 --> S3[&#x22;3. describe --replication 观察追平&#x22;]        S3 --> S4[&#x22;4. 追平后执行 add-controller&#x22;]        S5[&#x22;移除场景&#x22;] --> S6[&#x22;先 shutdown 该 Controller&#x22;]        S6 --> S7[&#x22;再执行 remove-controller&#x22;]    end    subgraph paper[&#x22;RAFT 论文的 joint consensus（本集群未采用）&#x22;]        P1[&#x22;C_old 生效&#x22;] --> P2[&#x22;C_old + C_new 共同生效&#x22;]        P2 --> P3[&#x22;C_new 单独生效&#x22;]    end    S4 -.->|&#x22;对比：官方未描述过渡双配置&#x22;| P2"><div></div></button></div></figure></div>
+<p><strong>工程含义必须说清：</strong> 逐个增删意味着一次只改一个成员，变更期间不存在「新旧配置同时生效」，因此不需要 joint consensus 来防多数派分裂；代价是无法并行批量变更，扩缩容按成员数串行执行，每步都要等复制追平，移除侧还有 Pre-vote 缺失带来的顺序约束。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>Kafka 为什么不用 joint consensus？</strong> —— 从官方流程可反推取舍：逐个增删把「配置变更」转化成「一次普通元数据日志提交」，变更本身走 RAFT 既有的一致性通道，无需引入过渡配置概念。代价是批量扩缩容串行等待。<strong>这是基于官方文档流程的推论，官方未直接给出取舍理由，展开这一层建议标注为「需实操验证」。</strong></li>
+<li><strong>add-controller 之前必须等复制追平吗？</strong> —— 官方流程明确要求，<code dir="auto">describe --replication</code> 用来观察进度。原因是只有追平后才能保证新成员参与后续选举时不因日志不完整破坏安全性——RAFT 的投票前置条件会拒绝日志不够新的 candidate，但一个刚加入的落后成员若参与投票过程，可能让本可成功的选举反复失败。</li>
+<li><strong>移除 Controller 时为什么必须先停机？</strong> —— 官方给出的直接原因是 KIP-996 的 Pre-vote 尚未实现。Pre-vote 让候选人在正式发起选举前先做一轮试探性拉票，确认有资格竞选才启动 term 递增。没有它时，一个已停机的节点不会主动参与交互，剩余节点的投票收集会变得不可预期，可能触发多轮无谓选举。<strong>停机就是让该节点彻底从 Quorum 通信中消失。</strong></li>
+<li><strong>add-controller 和 remove-controller 该连 Broker 端点还是 Controller 端点？</strong> —— 两种都行，官方给了两套命令：<code dir="auto">--command-config</code> 配合 <code dir="auto">--bootstrap-server</code>（连 Broker）或 <code dir="auto">--bootstrap-controller</code>（连 Controller）。<strong>排查元数据问题时优先连 Controller 端点</strong>，它绕过数据面，信号更干净。</li>
+<li><strong>如果 <code dir="auto">ActiveControllerCount</code> 全集群求和等于 2 说明什么？</strong> —— 出现脑裂，正常 RAFT 下不应发生。典型环境成因是 <code dir="auto">controller.quorum.bootstrap.servers</code> 导致两组节点互相不可见、各自组成独立「多数派」（如 6 个 Controller 分成 3+3 且组间不通），或同一 cluster id 下存在两套独立元数据日志（如重复 <code dir="auto">--standalone</code> 引导）。<strong>这是 P0 故障，必须立即隔离。</strong></li>
+</ol>
+</blockquote>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/Kafka%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">Kafka 监控与排障</a> —— 本篇的 <code dir="auto">raft-metrics</code>、<code dir="auto">ActiveControllerCount</code>、<code dir="auto">describe --status</code> 在排障篇展开为完整指标分层与决策表</li>
+<li><a href="/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">Kafka 架构全景与角色分工</a> —— Controller 与 Broker 的职责边界、KRaft 架构全貌、旧版架构差异的前置铺垫</li>
+<li><a href="/knowledge/Kafka/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/%E5%A4%8D%E5%88%B6%E6%A8%A1%E5%9E%8B%E4%B8%8EISR/">复制模型与 ISR</a> —— 分区 Leader 选举的 ISR 语义、LEO / HW / ISR 三变量关系</li>
+<li><a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E6%B6%88%E8%B4%B9%E7%BB%84%E3%80%81%E4%BD%8D%E7%82%B9%E6%8F%90%E4%BA%A4%E4%B8%8ERebalance/">消费组、位点提交与 Rebalance</a> —— <code dir="auto">__consumer_offsets</code> 走数据面复制这条链路的展开</li>
+<li><a href="/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84%E7%B4%A2%E5%BC%95/">Kafka 核心概念与架构索引</a> —— 主题入口</li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#kraft-协调与选主">KRaft 协调与选主</a> </li><li class="toc-depth-3"> <a href="#一kraft-为什么取代-zookeeper">一、KRaft 为什么取代 ZooKeeper</a> </li><li class="toc-depth-3"> <a href="#二raft-的角色与术语">二、RAFT 的角色与术语</a> </li><li class="toc-depth-3"> <a href="#三元数据日志记录什么怎么回放">三、元数据日志：记录什么、怎么回放</a> </li><li class="toc-depth-3"> <a href="#四controller-quorum-与引导选举">四、Controller Quorum 与引导选举</a> </li><li class="toc-depth-3"> <a href="#五任期与-epochfencing-的真正机制">五、任期与 epoch：fencing 的真正机制</a> </li><li class="toc-depth-3"> <a href="#六broker-注册与心跳两个独立的故障域">六、Broker 注册与心跳：两个独立的故障域</a> </li><li class="toc-depth-3"> <a href="#七controller-不可用时的系统边界">七、Controller 不可用时的系统边界</a> </li><li class="toc-depth-3"> <a href="#八静态配置与动态配置">八、静态配置与动态配置</a> </li><li class="toc-depth-3"> <a href="#九两处leader必须分清">九、两处「Leader」必须分清</a> </li><li class="toc-depth-3"> <a href="#十故障场景与成员变更">十、故障场景与成员变更</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>

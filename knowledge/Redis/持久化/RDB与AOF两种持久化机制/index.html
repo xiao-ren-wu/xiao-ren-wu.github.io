@@ -1,0 +1,346 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>RDB 与 AOF 两种持久化机制 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/Redis/%E6%8C%81%E4%B9%85%E5%8C%96/RDB%E4%B8%8EAOF%E4%B8%A4%E7%A7%8D%E6%8C%81%E4%B9%85%E5%8C%96%E6%9C%BA%E5%88%B6/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="RDB 与 AOF 两种持久化机制 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/Redis/%E6%8C%81%E4%B9%85%E5%8C%96/RDB%E4%B8%8EAOF%E4%B8%A4%E7%A7%8D%E6%8C%81%E4%B9%85%E5%8C%96%E6%9C%BA%E5%88%B6/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="另有两类触发："/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="另有两类触发："/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/" aria-current="page">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">RDB 与 AOF 两种持久化机制 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Redis/">Redis</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">Redis</span></li><li><span class="tag">持久化</span></li><li><span class="tag">RDB</span></li><li><span class="tag">AOF</span></li><li><span class="tag">COW</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="rdb-与-aof-两种持久化机制">RDB 与 AOF 两种持久化机制</h2>
+<h3 id="核心结论">核心结论</h3>
+<aside class="callout callout-abstract">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-6 4h4M5 4h14v16H5V4Zm4-1V2h6v1"></path></svg>一句话</p>
+<p>RDB 是<strong>某一时刻的全量快照</strong>，恢复快但可能丢数据；AOF 是<strong>写命令的追加日志</strong>，数据完整但文件大、恢复慢。两者都靠 <code dir="auto">fork()</code> 拿到一致的数据视图，<strong>fork 的那一刻之后写入的数据都不在快照里</strong>——这是理解所有持久化问题的起点。</p>
+</aside>
+<h3 id="一rdb全量二进制快照">一、RDB：全量二进制快照</h3>
+<h4 id="11-工作方式">1.1 工作方式</h4>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A["触发条件满足&#x3C;br/>save N M / SHUTDOWN / 主从全量同步"] --> B["fork() 子进程"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B --> C["子进程遍历内存&#x3C;br/>序列化写入 dump.rdb"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> D["子进程写临时文件&#x3C;br/>原子 rename 覆盖旧文件"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">D --> E["子进程退出"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B -.父进程继续服务.-> F["新写入的数据&#x3C;br/>不在快照中"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">F -.可能丢失.-> G["快照之后的写入丢失"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style G fill:#f8d7da</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style F fill:#fff3cd</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    A[&#x22;触发条件满足<br/>save N M / SHUTDOWN / 主从全量同步&#x22;] --> B[&#x22;fork() 子进程&#x22;]    B --> C[&#x22;子进程遍历内存<br/>序列化写入 dump.rdb&#x22;]    C --> D[&#x22;子进程写临时文件<br/>原子 rename 覆盖旧文件&#x22;]    D --> E[&#x22;子进程退出&#x22;]    B -.父进程继续服务.-> F[&#x22;新写入的数据<br/>不在快照中&#x22;]    F -.可能丢失.-> G[&#x22;快照之后的写入丢失&#x22;]    style G fill:#f8d7da    style F fill:#fff3cd"><div></div></button></div></figure></div>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">属性</th><th align="left">值</th></tr></thead><tbody><tr><td align="left">文件名</td><td align="left"><code dir="auto">dbfilename</code>（默认 <code dir="auto">dump.rdb</code>）</td></tr><tr><td align="left">存放目录</td><td align="left"><code dir="auto">dir</code>（默认 Redis 启动目录）</td></tr><tr><td align="left">压缩</td><td align="left"><code dir="auto">rdbcompression yes</code></td></tr><tr><td align="left">校验</td><td align="left"><code dir="auto">rdbchecksum yes</code>（CRC64）</td></tr><tr><td align="left">数据格式</td><td align="left"><strong>二进制</strong>，非文本</td></tr></tbody></table></div>
+<h4 id="12-触发条件">1.2 触发条件</h4>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">save 900 1      # 900 秒内至少 1 次修改</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">save 300 10     # 300 秒内至少 10 次修改</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">save 60 10000   # 60 秒内至少 10000 次修改</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="save 900 1      # 900 秒内至少 1 次修改save 300 10     # 300 秒内至少 10 次修改save 60 10000   # 60 秒内至少 10000 次修改"><div></div></button></div></figure></div>
+<p>另有两类触发：</p>
+<ul>
+<li><code dir="auto">SHUTDOWN</code>（非 <code dir="auto">NOSAVE</code>）—— 优雅关闭时自动存一次</li>
+<li><strong>主从复制的全量同步</strong> —— 从库向主库请求全量时，主库会做一次 RDB</li>
+</ul>
+<aside class="callout callout-tip">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6m-5 3h4M12 3a6 6 0 0 0-3.7 11.7c.6.5.9 1.2 1 1.9v.4h5.4v-.4c.1-.7.4-1.4 1-1.9A6 6 0 0 0 12 3Z"></path></svg>官方建议</p>
+<p>三条<code dir="auto">save</code> 全都关掉（<code dir="auto">save ""</code>）由运维在低峰期手动 <code dir="auto">BGSAVE</code>，或改用 AOF <code dir="auto">everysec</code>。三条同时开着不会叠加触发——Redis 取最”严格”的那条，而不是三条都执行。</p>
+</aside>
+<h3 id="二cow-写时复制rdb-的真实代价">二、COW 写时复制：RDB 的真实代价</h3>
+<p><code dir="auto">fork()</code> 后父子进程<strong>共享</strong>同一批物理页（页表指向相同物理页）。写操作会触发”复制这一页再改”，这就是 COW。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph before["fork 之前：父子共享页"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">P1["页A"] --- P2["页B"] --- P3["页C"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph after["fork 之后：父进程改 页A"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">N1["页A&#x3C;br/>父进程私有副本"] --- P2b["页B&#x3C;br/>仍共享"] --- P3b["页C&#x3C;br/>仍共享"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">R["内存放大：只改了 1 页&#x3C;br/>却要额外持有这 1 页的副本"] -.-> N1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style R fill:#f8d7da</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    subgraph before[&#x22;fork 之前：父子共享页&#x22;]        P1[&#x22;页A&#x22;] --- P2[&#x22;页B&#x22;] --- P3[&#x22;页C&#x22;]    end    subgraph after[&#x22;fork 之后：父进程改 页A&#x22;]        N1[&#x22;页A<br/>父进程私有副本&#x22;] --- P2b[&#x22;页B<br/>仍共享&#x22;] --- P3b[&#x22;页C<br/>仍共享&#x22;]    end    R[&#x22;内存放大：只改了 1 页<br/>却要额外持有这 1 页的副本&#x22;] -.-> N1    style R fill:#f8d7da"><div></div></button></div></figure></div>
+<p><strong>风险点</strong>：</p>
+<ol>
+<li><strong>fork 瞬间内存翻倍</strong>。实例 8G → fork 期间可能需要 16G 虚拟内存（实际靠 overcommit 保证不立即占用）</li>
+<li><strong>改大 key 灾难性放大</strong>。改一个 100MB 的 Hash，若逐页触发 COW，可能瞬间多出接近 100MB</li>
+<li><strong>fork 本身会短暂阻塞主线程</strong>。数据量大时 fork 耗时可达数百毫秒到秒级，期间所有请求延迟飙升</li>
+<li><strong>依赖内核 overcommit</strong>。必须设 <code dir="auto">vm.overcommit_memory 1</code>，否则 fork 可能因”无法分配虚拟内存”失败</li>
+</ol>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart LR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph risk["COW 放大风险"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A1["大实例内存"] --> A4["延迟抖动&#x3C;br/>甚至 OOM"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A2["大 key 被写"] --> A4</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A3["overcommit=0"] --> A4</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style A4 fill:#f8d7da</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart LR    subgraph risk[&#x22;COW 放大风险&#x22;]        A1[&#x22;大实例内存&#x22;] --> A4[&#x22;延迟抖动<br/>甚至 OOM&#x22;]        A2[&#x22;大 key 被写&#x22;] --> A4        A3[&#x22;overcommit=0&#x22;] --> A4    end    style A4 fill:#f8d7da"><div></div></button></div></figure></div>
+<aside class="callout callout-important">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3.8 9.2 9 10 5.2-.8 9-5 9-10V6l-9-4Zm0 6v5m0 3h.01"></path></svg>缓解手段</p>
+<ul>
+<li>Redis 4.0 起会在 fork 后让父进程<strong>减少对已有页的修改</strong>（推迟复制、合并写），降低 COW 放大</li>
+<li>生产上避免对超大 key 频繁写</li>
+<li>容器中要留足 <code dir="auto">fork</code> 所需空间，或用 <code dir="auto">maxmemory</code> 提前卡住水位</li>
+<li>纯内存实例（可丢失）直接关掉持久化</li>
+</ul>
+</aside>
+<h3 id="三aof写命令追加日志">三、AOF：写命令追加日志</h3>
+<h4 id="31-工作方式">3.1 工作方式</h4>
+<p>AOF 记录的是<strong>执行过的写命令</strong>（RESP 协议文本），不是数据本身。恢复时重放这些命令重建数据。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">参数</th><th align="left">取值</th><th align="left">说明</th></tr></thead><tbody><tr><td align="left"><code dir="auto">appendonly</code></td><td align="left">no / yes</td><td align="left">是否开启</td></tr><tr><td align="left"><code dir="auto">appendfilename</code></td><td align="left"><code dir="auto">appendonly.aof</code></td><td align="left">文件名（7.0 起为目录）</td></tr><tr><td align="left"><code dir="auto">appenddirname</code></td><td align="left"><code dir="auto">appendonlydir</code></td><td align="left">7.0 的 multi-part AOF 目录</td></tr><tr><td align="left"><code dir="auto">appendfsync</code></td><td align="left">always / everysec / <strong>no</strong></td><td align="left">见下表</td></tr><tr><td align="left"><code dir="auto">aof-use-rdb-preamble</code></td><td align="left">yes（4.0+ 默认）</td><td align="left">混合持久化</td></tr><tr><td align="left"><code dir="auto">no-appendfsync-on-rewrite</code></td><td align="left">no（默认）</td><td align="left">rewrite 期间是否暂停 fsync</td></tr></tbody></table></div>
+<h4 id="32-三种-fsync-策略高频考点">3.2 三种 fsync 策略（高频考点）</h4>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">策略</th><th align="left">刷盘时机</th><th align="left">最坏丢数据量</th><th align="left">性能</th></tr></thead><tbody><tr><td align="left"><code dir="auto">always</code></td><td align="left">每条命令后 fsync</td><td align="left"><strong>几乎不丢</strong></td><td align="left">最差（QPS 下降一个数量级）</td></tr><tr><td align="left"><code dir="auto">everysec</code></td><td align="left">每秒 fsync 一次</td><td align="left"><strong>约 1 秒</strong></td><td align="left">推荐默认</td></tr><tr><td align="left"><code dir="auto">no</code></td><td align="left">交给操作系统决定</td><td align="left"><strong>可能 30 秒甚至更久</strong></td><td align="left">最快</td></tr></tbody></table></div>
+<aside class="callout callout-tip">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6m-5 3h4M12 3a6 6 0 0 0-3.7 11.7c.6.5.9 1.2 1 1.9v.4h5.4v-.4c.1-.7.4-1.4 1-1.9A6 6 0 0 0 12 3Z"></path></svg>为什么</p>
+<p><code dir="auto">everysec</code> 是默认
+它把”可能丢 1 秒数据”换成了”每秒多一次 fsync”。经验上 <code dir="auto">always</code> 的吞吐损失远大于业务能接受的数据损失。若业务要求零丢失，应在<strong>架构层</strong>用主从/集群兜底，而不是靠 <code dir="auto">always</code>——<code dir="auto">always</code> 会把磁盘 IOPS 打满，连主从复制都会被拖慢。</p>
+</aside>
+<h4 id="33-aof-重写rewrite">3.3 AOF 重写（rewrite）</h4>
+<p>AOF 会不断追加，同一个 key 被改 1000 次就记录 1000 次。<strong>重写</strong>用当前内存数据重新生成一份最小 AOF。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A["AOF 不断追加&#x3C;br/>膨胀到 64MB 以上"] --> B{"当前 AOF 大小 >&#x3C;br/>auto-aof-rewrite-min-size&#x3C;br/>默认 64mb&#x3C;br/>且增长比例 >&#x3C;br/>auto-aof-rewrite-percentage&#x3C;br/>默认 100%?"}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|否| A</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|是| C["执行 BGREWRITEAOF&#x3C;br/>fork 子进程重写"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> D["新 AOF 写临时文件"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">D --> E["原子 rename 覆盖&#x3C;br/>旧 AOF 归档后删除"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style C fill:#d4edda</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    A[&#x22;AOF 不断追加<br/>膨胀到 64MB 以上&#x22;] --> B{&#x22;当前 AOF 大小 ><br/>auto-aof-rewrite-min-size<br/>默认 64mb<br/>且增长比例 ><br/>auto-aof-rewrite-percentage<br/>默认 100%?&#x22;}    B -->|否| A    B -->|是| C[&#x22;执行 BGREWRITEAOF<br/>fork 子进程重写&#x22;]    C --> D[&#x22;新 AOF 写临时文件&#x22;]    D --> E[&#x22;原子 rename 覆盖<br/>旧 AOF 归档后删除&#x22;]    style C fill:#d4edda"><div></div></button></div></figure></div>
+<aside class="callout callout-note">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H7l-3 3V4Zm4 6h8m-8 4h5"></path></svg>rewrite 也 fork，同样有 COW 风险</p>
+<p>rewrite 和 RDB 一样要 fork，且它要遍历全部 key。<strong>数据量大时 BGSAVE 和 BGREWRITEAOF 都是延迟毛刺来源</strong>。生产上通常限制数据量、或在低峰期手工触发。</p>
+</aside>
+<h4 id="34-混合持久化与-multi-part-aof">3.4 混合持久化与 multi-part AOF</h4>
+<p><strong>混合持久化</strong>（<code dir="auto">aof-use-rdb-preamble yes</code>，4.0+ 默认）：AOF 文件开头写一段 <strong>RDB 格式</strong>的全量快照，后面才追加增量命令。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart LR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph single["旧 AOF：纯命令追加"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A1["SET a 1"] --> A2["SET b 2"] --> A3["SET a 3"] --> A4["SET c 4"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph mixed["混合 AOF：RDB 前缀 + 命令"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">B1["RDB 全量快照"] --> B2["SET c 5"] --> B3["SET d 6"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">style mixed fill:#d4edda</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart LR    subgraph single[&#x22;旧 AOF：纯命令追加&#x22;]        A1[&#x22;SET a 1&#x22;] --> A2[&#x22;SET b 2&#x22;] --> A3[&#x22;SET a 3&#x22;] --> A4[&#x22;SET c 4&#x22;]    end    subgraph mixed[&#x22;混合 AOF：RDB 前缀 + 命令&#x22;]        B1[&#x22;RDB 全量快照&#x22;] --> B2[&#x22;SET c 5&#x22;] --> B3[&#x22;SET d 6&#x22;]    end    style mixed fill:#d4edda"><div></div></button></div></figure></div>
+<p><strong>multi-part AOF</strong>（7.0 引入）：把 AOF 组织成一个目录，文件更合理也更好清理。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">appendonlydir/</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">├── appendonly.aof.manifest      # 清单：记录 base + incr 的组成</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">├── appendonly.aof.1.base.rdb    # 全量基线（RDB 格式）</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">└── appendonly.aof.1.incr.aof    # 增量命令</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="appendonlydir/├── appendonly.aof.manifest      # 清单：记录 base + incr 的组成├── appendonly.aof.1.base.rdb    # 全量基线（RDB 格式）└── appendonly.aof.1.incr.aof    # 增量命令"><div></div></button></div></figure></div>
+<aside class="callout callout-tip">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6m-5 3h4M12 3a6 6 0 0 0-3.7 11.7c.6.5.9 1.2 1 1.9v.4h5.4v-.4c.1-.7.4-1.4 1-1.9A6 6 0 0 0 12 3Z"></path></svg>收益</p>
+<p>恢复时<strong>只加载 base + 尾部 incr</strong>，而不是从 AOF 开头逐条重放。混合持久化 + multi-part 让 AOF 的恢复速度接近 RDB，这是 4.0 之后”可以用 AOF 又不担心恢复慢”的关键。</p>
+</aside>
+<h3 id="四rdb-vs-aof-全维度对比">四、RDB vs AOF 全维度对比</h3>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">RDB</th><th align="left">AOF（everysec）</th></tr></thead><tbody><tr><td align="left">记录内容</td><td align="left">全量数据快照</td><td align="left">写命令追加</td></tr><tr><td align="left">文件大小</td><td align="left">小（压缩）</td><td align="left">大（混合持久化后中等）</td></tr><tr><td align="left">恢复速度</td><td align="left"><strong>快</strong></td><td align="left">较慢（7.0 后改善明显）</td></tr><tr><td align="left">数据丢失</td><td align="left">可能丢 fork 之后全部</td><td align="left"><strong>约 1 秒</strong></td></tr><tr><td align="left">写命令开销</td><td align="left">无（只在快照时）</td><td align="left">每条写都追加（无 fsync 时）</td></tr><tr><td align="left">追加脏页刷盘</td><td align="left">不需要</td><td align="left">需要</td></tr><tr><td align="left">文件可读性</td><td align="left">二进制，不可读</td><td align="left">RESP 文本，<strong>可人工审查/修复</strong></td></tr><tr><td align="left">fork 时机</td><td align="left">快照点</td><td align="left">rewrite 时</td></tr></tbody></table></div>
+<h4 id="选型建议">选型建议</h4>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">场景</th><th align="left">选择</th></tr></thead><tbody><tr><td align="left">纯缓存，可丢数据</td><td align="left"><strong>全关</strong>（<code dir="auto">save ""</code> + <code dir="auto">appendonly no</code>）</td></tr><tr><td align="left">允许丢几秒，换最高性能</td><td align="left"><code dir="auto">save 900 1</code> + <code dir="auto">appendonly no</code></td></tr><tr><td align="left">要求数据完整性</td><td align="left"><code dir="auto">appendonly yes</code> + <code dir="auto">appendfsync everysec</code></td></tr><tr><td align="left">零丢失要求</td><td align="left">不靠 <code dir="auto">always</code>；用主从/集群 + 持久化组合，并接受”已确认写入”的语义边界</td></tr></tbody></table></div>
+<aside class="callout callout-important">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3.8 9.2 9 10 5.2-.8 9-5 9-10V6l-9-4Zm0 6v5m0 3h.01"></path></svg>常见误区</p>
+<p>“开了 AOF 就不丢数据了” —— 不成立。<code dir="auto">everysec</code> 仍可能丢 1 秒；<code dir="auto">no</code> 可能丢 30 秒；<strong>AOF 写入成功也不等于业务持久</strong>（还要看 <code dir="auto">write</code> 返回值与主从状态）。真正的零丢失需要跨机房复制，这是另一套设计。</p>
+</aside>
+<h3 id="五实战排查命令">五、实战排查命令</h3>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#919F9F;--1:#5F636F"># 查看当前持久化配置</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">CONFIG</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">GET</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">save</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">CONFIG</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">GET</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">appendfsync</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">CONFIG</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">GET</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">aof-use-rdb-preamble</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#919F9F;--1:#5F636F"># 手动触发并观察耗时</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">INFO</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">persistence</span><span style="--0:#D6DEEB;--1:#403F53">        </span><span style="--0:#919F9F;--1:#5F636F"># rdb_last_bgsave_status / rdb_last_bgsave_time_sec</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">BGSAVE</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">BGREWRITEAOF</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#919F9F;--1:#5F636F"># 看 AOF 文件位置与大小（7.0 目录结构）</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">redis-cli</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">INFO</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">persistence</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">|</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">grep</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-E</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">aof_filename|aof_rewrite_in_progress|aof_last_bgrewrite_status</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#919F9F;--1:#5F636F"># 开启 RDB/AOF 失败告警的关键指标</span></div></div><div class="ec-line"><div class="code"><span style="--0:#919F9F;--1:#5F636F">#   rdb_last_bgsave_status:ok  aof_last_write_status:ok</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="redis-cli CONFIG GET saveredis-cli CONFIG GET appendfsyncredis-cli CONFIG GET aof-use-rdb-preambleredis-cli INFO persistence        # rdb_last_bgsave_status / rdb_last_bgsave_time_secredis-cli BGSAVEredis-cli BGREWRITEAOFredis-cli INFO persistence | grep -E &#x27;aof_filename|aof_rewrite_in_progress|aof_last_bgrewrite_status&#x27;"><div></div></button></div></figure></div>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>必须配监控的两条</p>
+<ul>
+<li><code dir="auto">rdb_last_bgsave_status</code> / <code dir="auto">aof_last_write_status</code> —— 失败时 Redis <strong>不会</strong>主动告警，数据会静默停止持久化</li>
+<li><code dir="auto">rdb_last_bgsave_time_sec</code> —— 反映 fork 耗时与 COW 压力</li>
+</ul>
+</aside>
+<h3 id="六面试速答模板">六、面试速答模板</h3>
+<blockquote>
+<p>“RDB 是二进制全量快照，通过 <code dir="auto">save</code> 配置或 SHUTDOWN、主从全量同步触发，优点是文件小、恢复快，缺点是 fork 之后写入的数据会丢。核心风险在 <code dir="auto">fork()</code> 的写时复制：父子进程共享物理页，父进程每改动一页就要复制一份，实例大或改大 key 时内存会显著放大，还会因 fork 阻塞主线程导致延迟毛刺，所以生产必须设 <code dir="auto">vm.overcommit_memory 1</code>。</p>
+<p>AOF 记录写命令，fsync 三档：<code dir="auto">always</code> 每条、几乎不丢但 QPS 掉一个数量级；<code dir="auto">everysec</code> 默认、丢约 1 秒；<code dir="auto">no</code> 交给 OS、可能丢 30 秒。AOF 文件靠 <code dir="auto">auto-aof-rewrite-min-size</code> 默认 64MB 加 <code dir="auto">auto-aof-rewrite-percentage</code> 默认 100% 触发重写，重写同样 fork。</p>
+<p>关键的优化是 4.0 起的混合持久化 <code dir="auto">aof-use-rdb-preamble</code>：AOF 头部是 RDB 全量、后面才跟增量命令，配合 7.0 的 multi-part AOF 把 base 和 incr 分文件存，恢复时只加载 base 加尾部 incr，AOF 恢复速度就接近 RDB 了。选型上，纯缓存全关，要性能接受丢数据就只开 RDB，要完整性就 <code dir="auto">everysec</code>，我不建议用 <code dir="auto">always</code>，因为它打满磁盘 IOPS 会连带拖慢复制，零丢失应该靠架构层解决而不是调 fsync。”</p>
+</blockquote>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/Redis/%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/Redis%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5/">Redis 主从复制与数据同步</a> —— 主从全量同步直接复用 RDB，且 fork 会在从库上发生</li>
+<li><a href="/knowledge/Redis/%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E4%B8%8E%E8%BF%87%E6%9C%9F%E6%B7%98%E6%B1%B0%E7%AD%96%E7%95%A5/">内存管理与过期淘汰策略</a> —— <code dir="auto">maxmemory</code> 与持久化的取舍，纯缓存实例往往两者都关</li>
+<li><a href="/knowledge/Redis/%E9%9B%86%E7%BE%A4%E4%B8%8E%E9%AB%98%E5%8F%AF%E7%94%A8/%E5%93%A8%E5%85%B5%E4%B8%8ECluster%E9%9B%86%E7%BE%A4%E6%9C%BA%E5%88%B6/">哨兵与 Cluster 集群机制</a> —— 集群与哨兵如何用副本数换取数据可靠性</li>
+<li><a href="/knowledge/Redis/%E6%8C%81%E4%B9%85%E5%8C%96/%E6%8C%81%E4%B9%85%E5%8C%96%E7%B4%A2%E5%BC%95/">持久化索引</a> —— 本主题全部笔记</li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#rdb-与-aof-两种持久化机制">RDB 与 AOF 两种持久化机制</a> </li><li class="toc-depth-3"> <a href="#核心结论">核心结论</a> </li><li class="toc-depth-3"> <a href="#一rdb全量二进制快照">一、RDB：全量二进制快照</a> </li><li class="toc-depth-3"> <a href="#二cow-写时复制rdb-的真实代价">二、COW 写时复制：RDB 的真实代价</a> </li><li class="toc-depth-3"> <a href="#三aof写命令追加日志">三、AOF：写命令追加日志</a> </li><li class="toc-depth-3"> <a href="#四rdb-vs-aof-全维度对比">四、RDB vs AOF 全维度对比</a> </li><li class="toc-depth-3"> <a href="#五实战排查命令">五、实战排查命令</a> </li><li class="toc-depth-3"> <a href="#六面试速答模板">六、面试速答模板</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Kafka 架构全景与角色分工 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="Kafka 架构全景与角色分工 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Kafka 是什么、由哪些角色组成、一条消息从产生到被消费要经过哪些环节、为什么 4.x 换掉了 ZooKeeper——这是读后续所有篇目的前提。如果分不清 Controller 与 Broker 的职责边界，后面的复制…"/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Kafka 是什么、由哪些角色组成、一条消息从产生到被消费要经过哪些环节、为什么 4.x 换掉了 ZooKeeper——这是读后续所有篇目的前提。如果分不清 Controller 与 Broker 的职责边界，后面的复制…"/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/" aria-current="page">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">Kafka 架构全景与角色分工 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/">Kafka</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">Kafka</span></li><li><span class="tag">核心概念与架构</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="kafka-架构全景与角色分工">Kafka 架构全景与角色分工</h2>
+<aside class="callout callout-info">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-5v-6m0-3h.01"></path></svg>来源</p>
+<p>基于 Kafka 4.x 官方文档整理。文中未标注 ⚠️ 的结论可直接用于面试应答。
+本篇只讲<strong>结构性事实</strong>（角色职责、数据流向、选主机制），不涉及具体配置默认值；默认值类陈述集中在生产、消费者、可靠性各篇，并逐条标注适用版本。</p>
+</aside>
+<p>Kafka 是什么、由哪些角色组成、一条消息从产生到被消费要经过哪些环节、为什么 4.x 换掉了 ZooKeeper——这是读后续所有篇目的前提。如果分不清 Controller 与 Broker 的职责边界，后面的复制、选主、排障都会变成背概念。</p>
+<h3 id="一消息系统的两类定位">一、消息系统的两类定位</h3>
+<p>Kafka 常被笼统归为「消息队列」，但它同时满足两类诉求，而这两类诉求决定了它几乎所有的设计取舍。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">定位</th><th align="left">核心诉求</th><th align="left">典型指标</th><th align="left">Kafka 的取舍</th></tr></thead><tbody><tr><td align="left"><strong>消息队列（MQ）</strong></td><td align="left">解耦、削峰、异步化</td><td align="left">单条投递延迟、投递成功率</td><td align="left">为降低延迟，允许每条消息只落少数副本、只等 Leader 确认</td></tr><tr><td align="left"><strong>事件流处理（ESF）</strong></td><td align="left">高吞吐、可重放、可回溯</td><td align="left">吞吐量、保留时长</td><td align="left">为保证可重放，消息不能被「消费即删除」，必须按保留策略留存</td></tr></tbody></table></div>
+<p><strong>关键认知：Kafka 的设计重心偏向后者。</strong></p>
+<p>一条消息被成功消费后，<strong>它并不会消失</strong>，而是继续留在日志里直到超过保留策略（retention）被清理。这意味着：</p>
+<ul>
+<li>同一个消费组可以把位点（offset）往回拨，重新消费历史数据</li>
+<li>多个互不相关的消费组可以各自独立消费同一份数据</li>
+<li>消费者短暂宕机不会丢消息——只要位点没被推进，重启后从上次位点继续</li>
+</ul>
+<p>这就是 Kafka 与传统 MQ 最容易被误解的地方：<strong>「消费」在 Kafka 里不是「删除」，而是「记录你读到了哪里」</strong>。</p>
+<blockquote>
+<p><strong>面试追问：Kafka 和传统 MQ（比如 RabbitMQ）在「消息被消费后」最本质的区别是什么？</strong></p>
+<p>答：Kafka 是<strong>拉取式 + 保留式</strong>，消费不删除数据，只推进位点，因此可重放、可多消费组独立消费，代价是必须显式管理保留策略与磁盘容量。传统 MQ 多为<strong>推送式 + 消费即删除</strong>（或按 ack 决定），单条投递延迟更低、队列语义更直观，但历史消息不可重放。</p>
+<p>补充加分点：Kafka 官方现在把自己定位为 <strong>distributed event streaming platform</strong>，这个措辞本身就是在强调第二类定位。</p>
+</blockquote>
+<h3 id="二kafka-的核心角色与职责边界">二、Kafka 的核心角色与职责边界</h3>
+<p>集群里有三类核心角色，职责<strong>互不重叠</strong>。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">角色</th><th align="left">负责什么</th><th align="left">不负责什么</th><th align="left">典型故障影响</th></tr></thead><tbody><tr><td align="left"><strong>Broker</strong></td><td align="left">存储消息、副本同步、响应读写请求</td><td align="left">不做元数据决策（谁当 Leader）</td><td align="left">单 Broker 故障 → 该 Broker 上的 Leader 分区需重新选主</td></tr><tr><td align="left"><strong>Controller</strong>（KRaft）</td><td align="left">维护集群元数据、决定分区 Leader、创建分区</td><td align="left">不存消息数据、不参与消息读写</td><td align="left">Controller 不可用 → 已挂载的分区仍能读写，但新分区创建/扩容等变更操作受阻</td></tr><tr><td align="left"><strong>Producer</strong></td><td align="left">决定消息去哪个分区、批量压缩、可靠性配置</td><td align="left">不感知集群拓扑细节，靠拉取元数据获知</td><td align="left">生产端故障 → 消息发不出去，但不影响已有数据</td></tr><tr><td align="left"><strong>Consumer</strong></td><td align="left">按位点拉取、处理消息、提交位点</td><td align="left">不直接读磁盘</td><td align="left">消费端故障 → 分区被重新分配给组内其他成员</td></tr></tbody></table></div>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph LR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P[Producer] -->|写| B[Broker]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|持久化| T[(Topic / Partition)]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">T -->|读| C[Consumer]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -.注册与心跳.-> CR[Controller Quorum]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -.上报元数据.-> CR</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">CR -.指定 Leader.-> B</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph LR  P[Producer] -->|写| B[Broker]  B -->|持久化| T[(Topic / Partition)]  T -->|读| C[Consumer]  B -.注册与心跳.-> CR[Controller Quorum]  B -.上报元数据.-> CR  CR -.指定 Leader.-> B"><div></div></button></div></figure></div>
+<p><strong>最容易搞混的一点：Controller 不是 Broker 的「超集」，两者是并列的进程角色。</strong></p>
+<p>一个 Broker 进程同时做两件事：</p>
+<ol>
+<li>作为 <strong>Controller</strong> 参与元数据共识（通常由少数几个 Broker 承担，构成 Controller Quorum）</li>
+<li>作为 <strong>Broker</strong> 存储与收发消息（通常所有 Broker 都做）</li>
+</ol>
+<p>所以「某台 Broker 挂了」要分两种情况看：</p>
+<ul>
+<li>它只是普通 Broker → 挂掉时它上面的 Leader 分区重新选主，数据由 Follower 顶上</li>
+<li>它同时是 Controller 成员 → 如果 Quorum 里挂掉的成员过半，Controller 也失效；但<strong>集群已有的数据读写通常仍可继续</strong>（元数据已被提交到日志，未提交的操作暂时不能推进）</li>
+</ul>
+<blockquote>
+<p><strong>面试追问：Controller 挂了，Kafka 集群就完全不可用了吗？</strong></p>
+<p>答：不一定，要区分「Controller 全部不可用」和「部分不可用」。<strong>已有的分区读写不依赖 Controller 在线</strong>——数据面路径上 Controller 只在元数据变更时参与。Controller 不可用时，已经在服务的数据可以继续生产和消费，但会<strong>失去动态能力</strong>：无法自动创建新分区、无法完成 Leader 重选（如果恰好同时有 Broker 故障）、无法执行需要元数据变更的管理操作。</p>
+<p>进一步加分：正因为数据面与元数据面解耦，Controller 的恢复是<strong>可回放</strong>的——它启动后重放元数据日志即可重建全量状态，不需要 Broker 逐个汇报。</p>
+</blockquote>
+<h3 id="三topic-与-partition数据如何切分">三、Topic 与 Partition：数据如何切分</h3>
+<p>这是整个系统里<strong>最该先想明白</strong>的数据模型，它直接决定了后面几乎所有能力与限制。</p>
+<h4 id="31-逻辑与物理的两层结构">3.1 逻辑与物理的两层结构</h4>
+<ul>
+<li><strong>Topic</strong>：逻辑上的消息分类名，比如 <code dir="auto">orders</code>、<code dir="auto">user-events</code>。它本身不存数据</li>
+<li><strong>Partition</strong>：Topic 的物理分片。<strong>数据只存在于分区里</strong></li>
+</ul>
+<p>一个 Topic 可以有 1 个、3 个、100 个分区。分区数<strong>一旦只能增不能减</strong>（可以加分区，不能删），且<strong>直接影响消费并行度上限</strong>。</p>
+<h4 id="32-分区是最小有序单位">3.2 分区是最小有序单位</h4>
+<p><strong>Kafka 只保证分区内有序，不保证跨分区有序，也不保证全局有序。</strong></p>
+<p>原因很直白：不同分区由不同的 Leader 独立追加写入，写入顺序由各自的到达时间决定。要实现全局有序，就得让所有写入排队走同一条路径，等于放弃并行——这与 Kafka 的设计目标冲突。</p>
+<blockquote>
+<p><strong>面试追问：业务要求「同一订单的事件必须按顺序处理」，Kafka 怎么保证？</strong></p>
+<p>答：靠 <strong>key 绑定分区</strong>。把订单号作为消息的 key，Partitioner 会用 key 的哈希值决定目标分区（默认对 key 取 murmur2 哈希再对分区数取模）。同一订单号 → 同一分区 → 由该分区的单一 Leader 顺序追加 → 顺序天然得到保证。</p>
+<p>必须补充的边界：</p>
+<ul>
+<li>顺序性以<strong>分区</strong>为粒度，跨分区无序</li>
+<li>如果目标分区数发生变化（扩分区），取模基数变了，同一个 key 可能被映射到新分区，<strong>扩容瞬间会破坏原有顺序</strong></li>
+<li>消费侧必须保证该分区<strong>单线程按序消费</strong>；多线程并发消费同一分区，顺序照样被破坏</li>
+<li>失败重试也会破坏顺序：第 1 条重试未完成、第 2 条已成功，业务看到的就是乱序</li>
+</ul>
+</blockquote>
+<h4 id="33-分区副本与可用性的三角">3.3 分区、副本与可用性的三角</h4>
+<p>每个分区有多个副本（replica），其中：</p>
+<ul>
+<li><strong>恰好一个</strong>是 Leader，承担全部读写</li>
+<li>其余是 Follower，只从 Leader 拉数据</li>
+<li><strong>Follower 永不直接服务客户端请求</strong></li>
+</ul>
+<p>这个「单 Leader」约束是 Kafka 高效的前提：无需副本间协商读请求，读写都走一条路径。</p>
+<p>代价是<strong>每个分区都存在单点</strong>：Leader 所在 Broker 宕机时，该分区的写入要中断到重新选主完成；消费侧通常能继续（从 Follower 读），但严格一致性语义下会先暂停等新 Leader 就位。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph Partition-0</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">L0[Leader] -->|同步| F01[Follower 1]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">L0 -->|同步| F02[Follower 2]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph Partition-1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">L1[Leader] -->|同步| F11[Follower 1]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">L1 -->|同步| F12[Follower 2]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C[Consumer] --> L0</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C --> L1</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  subgraph Partition-0    L0[Leader] -->|同步| F01[Follower 1]    L0 -->|同步| F02[Follower 2]  end  subgraph Partition-1    L1[Leader] -->|同步| F11[Follower 1]    L1 -->|同步| F12[Follower 2]  end  C[Consumer] --> L0  C --> L1"><div></div></button></div></figure></div>
+<blockquote>
+<p><strong>面试追问：Kafka 为什么是「每分区单 Leader」而不是像数据库那样多副本同时可读？</strong></p>
+<p>答：为了<strong>读写路径无协商</strong>。如果多个副本同时可读，客户端要选一个副本、读到不同位置还得处理副本间位点差异（类似读修复），复杂度与一致性成本都高。Kafka 的选择是：写走 Leader，读也走 Leader（<code dir="auto">read_uncommitted</code> 语义下），用<strong>副本数换可用性</strong>而非换读扩展性。</p>
+<p>顺带说清代价与收益：代价是 Leader 切换期间该分区短暂不可用；收益是读写路径极简，吞吐上限更高。对「日志流」类负载，这个取舍是划算的。</p>
+</blockquote>
+<h3 id="四一次完整的-produce--consume-生命周期">四、一次完整的 produce → consume 生命周期</h3>
+<p>按时间顺序走一遍。示例中的分区数、副本数都是<strong>为了讲解假设的数值，不是 Kafka 默认值</strong>。</p>
+<p><strong>假设</strong>：Topic <code dir="auto">orders</code> 有 3 个分区，副本因子 3；消息 key 为 <code dir="auto">order-9527</code>。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">sequenceDiagram</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant P as Producer</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant M as Metadata(Client cache)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant B as Broker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant CR as Controller</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant C as Consumer</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>M: 需要路由信息</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">M-->>P: 返回 Topic 元数据与分区 Leader</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>P: 对 key 取哈希 → 定位分区</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>B: 追加到目标分区的 Leader</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B->>B: 分配 offset，写入日志</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B-->>P: 按 acks 语义返回确认</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B->>B: 异步复制到 Follower</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>B: 拉取（拉到的位点由消费组协调）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B-->>C: 返回消息批次</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>C: 处理消息</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>B: 提交消费位点</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="sequenceDiagram  participant P as Producer  participant M as Metadata(Client cache)  participant B as Broker  participant CR as Controller  participant C as Consumer  P->>M: 需要路由信息  M-->>P: 返回 Topic 元数据与分区 Leader  P->>P: 对 key 取哈希 → 定位分区  P->>B: 追加到目标分区的 Leader  B->>B: 分配 offset，写入日志  B-->>P: 按 acks 语义返回确认  B->>B: 异步复制到 Follower  C->>B: 拉取（拉到的位点由消费组协调）  B-->>C: 返回消息批次  C->>C: 处理消息  C->>B: 提交消费位点"><div></div></button></div></figure></div>
+<h4 id="41-生产端">4.1 生产端</h4>
+<ol>
+<li><strong>取路由</strong>：Producer 从元数据缓存里查 Topic → 分区 → Leader 的映射。缓存为空或过期时向任意 Broker 索要元数据</li>
+<li><strong>选分区</strong>：由 Partitioner 决定。指定了分区就用指定值；指定 key 就用 key 的哈希；都没有就按轮询选，<strong>保证同一 Producer 的多条消息能均匀打到各分区</strong></li>
+<li><strong>发请求</strong>：连到该分区的 Leader Broker，追加写入</li>
+<li><strong>确认</strong>：按 <code dir="auto">acks</code> 配置等待不同级别的确认——只等 Leader、还是等全部 ISR 副本、还是不等（详见 <code dir="auto">[[幂等、acks 与事务]]</code>）</li>
+</ol>
+<h4 id="42-broker-侧">4.2 Broker 侧</h4>
+<ol>
+<li>消息被分配一个<strong>递增的 offset</strong>（该分区内单调递增）</li>
+<li>追加写入分区日志文件</li>
+<li>按 <code dir="auto">acks</code> 语义决定何时给生产者返回</li>
+<li>异步复制给 Follower；Follower 落后超阈值会被移出 ISR（详见 <code dir="auto">[[复制模型与 ISR]]</code>）</li>
+</ol>
+<h4 id="43-消费端">4.3 消费端</h4>
+<ol>
+<li>消费者加入消费组，与协调者完成分配（详见 <code dir="auto">[[消费组、位点提交与 Rebalance]]</code>）</li>
+<li>从 Leader（或配置允许的 Follower）拉取消息批次</li>
+<li>处理消息</li>
+<li>提交位点</li>
+</ol>
+<p><strong>第 3 步和第 4 步的顺序，决定了投递语义</strong>。先提交位点再处理 → 崩溃时丢消息（at-most-once）；先处理再提交位点 → 崩溃时重复处理（at-least-once）。Kafka 默认语义是 <strong>at-least-once</strong>，要拿到更强的保证需要额外的机制，详见 <code dir="auto">[[投递语义与消息去重]]</code>。</p>
+<blockquote>
+<p><strong>面试追问：offset 是全局唯一的吗？多个分区会重号吗？</strong></p>
+<p>答：<strong>不唯一。</strong> offset 是<strong>分区内唯一且单调递增</strong>的，跨分区会重号。所以位点必须成对表示：<code dir="auto">(partition, offset)</code>，常见编码就是 <code dir="auto">${partition}-${offset}</code>。这正是消费组提交位点时提交的是「一组分区的位点集合」而不是单个数字的原因。</p>
+</blockquote>
+<h3 id="五kraft-架构全貌">五、KRaft 架构全貌</h3>
+<p>KRaft 是 Kafka 自带的元数据协调机制，基于 <strong>RAFT</strong> 共识，把元数据本身也变成一条可复制的日志。</p>
+<h4 id="51-元数据日志">5.1 元数据日志</h4>
+<p>集群的分区分配、Leader 指向、Broker 注册、配置变更等，全部写进一条<strong>元数据日志</strong>，由 Controller Quorum 内的多个 Controller 成员通过 RAFT 复制。</p>
+<p>关键性质：</p>
+<ul>
+<li><strong>只有一个 Leader 成员</strong>负责追加日志项</li>
+<li>其他成员作为 Follower 复制，并可在 Leader 故障时通过选举接替</li>
+<li>通过**任期（term）**防止旧 Leader 在网络恢复后继续写入（脑裂保护）</li>
+<li>日志项会周期性压缩为快照，加速重启后的状态恢复</li>
+</ul>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph Controller Quorum</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C1[Controller A&#x3C;br/>Leader]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C2[Controller B]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C3[Controller C]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C1 -->|RAFT 复制| C2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C1 -->|RAFT 复制| C3</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C1 -->|追加| M[(元数据日志)]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">M -->|快照 + 增量| C2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">M -->|快照 + 增量| C3</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B1[Broker] -.注册 / 心跳.-> C1</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B1 -.上报本机分区.-> C1</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  subgraph Controller Quorum    C1[Controller A<br/>Leader]    C2[Controller B]    C3[Controller C]    C1 -->|RAFT 复制| C2    C1 -->|RAFT 复制| C3  end  C1 -->|追加| M[(元数据日志)]  M -->|快照 + 增量| C2  M -->|快照 + 增量| C3  B1[Broker] -.注册 / 心跳.-> C1  B1 -.上报本机分区.-> C1"><div></div></button></div></figure></div>
+<h4 id="52-三个阶段双保险">5.2 三个阶段（双保险）</h4>
+<p>KRaft 的成员变更用**联合共识（joint consensus）**分阶段推进，避免单次切换导致脑裂：</p>
+<ol>
+<li>旧配置与新配置同时生效，达成双重多数派</li>
+<li>只用新配置达成多数派</li>
+<li>新配置正式生效</li>
+</ol>
+<p>这套机制的好处是<strong>成员变更也是被共识保护的操作</strong>，而不是一个「谁能联系上就生效」的弱规则。</p>
+<blockquote>
+<p><strong>面试追问：KRaft 相比 ZooKeeper 方案，核心改进是什么？</strong></p>
+<p>答：把<strong>外部的一致性存储</strong>换成<strong>内置的共识日志</strong>。三点收益：</p>
+<ol>
+<li><strong>运维简化</strong>：不再需要单独部署和维护一套 ZooKeeper 集群，Broker 数量可以减半</li>
+<li><strong>一致性更强</strong>：元数据变更走 RAFT 共识，有明确的任期和多数派保证；而 ZooKeeper 是最终一致的，写完可能短暂不可见</li>
+<li><strong>可回放恢复</strong>：元数据是日志，Controller 重启后重放即可重建全量状态，不依赖向各 Broker 逐一询问</li>
+</ol>
+<p>反过来说也要讲代价：ZooKeeper 时代运维团队对这套模型已经形成了肌肉记忆，KRaft 的工具链、监控指标、排障思路都换了，属于<strong>有明确收益但有迁移成本</strong>的改动。</p>
+</blockquote>
+<h3 id="六与-zookeeper-时代架构的差异">六、与 ZooKeeper 时代架构的差异</h3>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>旧版做法</p>
+<p>本节描述的是<strong>Kafka 4.0 之前</strong>的架构。本库版本基线为 <strong>Kafka 4.x</strong>，其中 ZooKeeper 协调模式已被移除；下述内容保留，是因为存量系统仍可能运行在旧版本上，且面试中常被问到。<strong>在新版本上不要再按 ZooKeeper 的方式排查问题。</strong></p>
+</aside>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">ZooKeeper 时代（&#x3C; 4.0）</th><th align="left">KRaft（4.x）</th></tr></thead><tbody><tr><td align="left">元数据存放</td><td align="left">外部 ZooKeeper 集群的 znode</td><td align="left">Broker 内部的元数据日志</td></tr><tr><td align="left">一致性机制</td><td align="left">ZooKeeper 的最终一致性 + watch 通知</td><td align="left">RAFT 强一致 + 任期</td></tr><tr><td align="left">通知方式</td><td align="left"><strong>推模式</strong>：ZK 变更 → watch 回调 → 通知各 Broker</td><td align="left"><strong>拉模式</strong>：各节点主动拉取元数据</td></tr><tr><td align="left">Broker 角色</td><td align="left">需靠 ZooKeeper 完成 Leader 选举</td><td align="left">Leader 由 Controller 统一分配，Broker 不参与投票</td></tr><tr><td align="left">组件依赖</td><td align="left">需额外部署 ZK 集群（含奇数节点、单独监控）</td><td align="left">无外部依赖</td></tr><tr><td align="left">恢复方式</td><td align="left">Broker 启动后连 ZK 注册、拉取元数据</td><td align="left">重放元数据日志或加载快照</td></tr></tbody></table></div>
+<p><strong>架构上的本质差异是「谁做决策」</strong>：</p>
+<ul>
+<li>ZooKeeper 时代：Broker <strong>自己</strong>参与 Leader 选举，ZK 只提供数据和通知</li>
+<li>KRaft 时代：Controller <strong>统一决策</strong>并下发，Broker 老实执行</li>
+</ul>
+<p>这直接改变了排障的思考方式：ZooKeeper 时代要查「ZK 是否抖动、watch 是否丢失」；KRaft 时代要查「Controller Quorum 是否健康、元数据日志是否可读写、当前 term 是多少」。</p>
+<blockquote>
+<p><strong>面试追问：为什么 KRaft 放弃了 watch 推送，改成拉取？</strong></p>
+<p>答：watch 推送是<strong>易丢事件</strong>的——注册了 watch 之后到收到通知之间存在窗口，事件在此期间发生就可能丢失，必须靠客户端自建重连与全量对账来补。而拉取是<strong>状态驱动</strong>的：不管错过多少次，只要拉到的状态是最新的就一定正确，天然幂等。代价是引入了元数据延迟与一定的重复拉取。</p>
+<p>这是分布式系统里一个很典型的取舍：<strong>推的延迟低但要求送达保证，拉的延迟略高但状态一定收敛。</strong> Kafka 选择后者，因为元数据变更的频率远低于消息流量，能接受这点延迟换取正确性。</p>
+</blockquote>
+<h3 id="七面试高频追问">七、面试高频追问</h3>
+<p>按面试出现频率排序，每条给出答题要点。</p>
+<p><strong>1. Kafka 为什么快？能背出哪几条优化？</strong></p>
+<p>答题骨架：顺序写磁盘（顺序 IO 吞吐远高于随机）、零拷贝（省用户态与内核态切换）、批量与压缩、页缓存（依赖 OS 而非 JVM 堆）、分区并行。详见 <code dir="auto">[[Kafka 存储机制索引]]</code>。</p>
+<p><strong>2. Kafka 为什么能保证顺序？什么情况下不保证？</strong></p>
+<p>答题骨架：顺序性以<strong>分区</strong>为粒度；用 key 把相关消息固定到同一分区；消费侧必须单线程按序消费；失败重试、扩分区、并发消费都会破坏顺序。</p>
+<p><strong>3. 一个分区可以有多个 Leader 吗？为什么？</strong></p>
+<p>答题骨架：不能，<strong>恰好一个 Leader</strong>。这是读写路径无协商的前提。Leader 故障时由 Controller 重新指派，期间该分区短暂不可写。</p>
+<p><strong>4. 消费组之间会互相影响吗？</strong></p>
+<p>答题骨架：不会。<strong>每个消费组独立维护自己的位点</strong>，互相看不到对方的进度。同一消费组内的成员分摊分区，一个分区同一时刻只被组内一个成员消费。</p>
+<p><strong>5. 消费组里的消费者数量超过分区数会怎样？</strong></p>
+<p>答题骨架：多出来的消费者<strong>拿不到任何分区</strong>，处于空闲状态。所以<strong>消费并行度上限 = 分区数</strong>，增加消费者前要先确认分区数是否够。详见 <code dir="auto">[[顺序消费与积压处理]]</code>。</p>
+<p><strong>6. Kafka 的 Leader 一定同步完副本才返回客户端吗？</strong></p>
+<p>答题骨架：不一定，由 <code dir="auto">acks</code> 决定。<code dir="auto">acks</code> 有三档，语义与可靠性/吞吐成反比；而 <code dir="auto">min.insync.replicas</code> 决定了「至少多少副本同步了才算有效确认」。两者要一起看。详见 <code dir="auto">[[幂等、acks 与事务]]</code> 与 <code dir="auto">[[复制模型与 ISR]]</code>。</p>
+<p><strong>7. 元数据管理为什么不用现成的 ZooKeeper？</strong></p>
+<p>答题骨架：不是不能用，而是<strong>内置共识的收益大于成本</strong>——去掉一个外部强一致中间件，换来更低运维复杂度、更强一致性保证与可回放恢复。详见第五、六节。</p>
+<p><strong>8. Broker 挂了会发生什么？数据丢吗？</strong></p>
+<p>答题骨架：分三种情况——普通 Broker 挂则该 Broker 上的 Leader 分区重新选主，Follower 顶上；副本同步策略与 <code dir="auto">acks</code> 组合决定丢失窗口；Controller 成员挂过半分则元数据操作暂停，但已有数据读写通常继续。详见 <code dir="auto">[[复制模型与 ISR]]</code>。</p>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/Kafka/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/Kafka%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84%E7%B4%A2%E5%BC%95/">Kafka 核心概念与架构索引</a> —— 本主题的索引页</li>
+<li><a href="/knowledge/Kafka/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/Kafka%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6%E7%B4%A2%E5%BC%95/">Kafka 存储机制索引</a> —— 架构之上的日志落盘、稀疏索引与零拷贝</li>
+<li><a href="/knowledge/Kafka/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/Kafka%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89%E7%B4%A2%E5%BC%95/">Kafka 可靠性与投递语义索引</a> —— 架构如何收敛成可靠性保证</li>
+<li><a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/Kafka%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84%E7%B4%A2%E5%BC%95/">Kafka 消费者与消费组索引</a> —— 消费组协调与 Rebalance 细节</li>
+<li><a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/Kafka%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">Kafka 监控与排障</a> —— 排障指标与官方 CLI 工具链</li>
+<li>对照库 <a href="/knowledge/RocketMQ/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/RocketMQ%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">RocketMQ 架构全景与角色分工</a>：<strong>Kafka 用 RAFT 达成元数据一致，RocketMQ 的 NameServer 无状态、无共识</strong></li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#kafka-架构全景与角色分工">Kafka 架构全景与角色分工</a> </li><li class="toc-depth-3"> <a href="#一消息系统的两类定位">一、消息系统的两类定位</a> </li><li class="toc-depth-3"> <a href="#二kafka-的核心角色与职责边界">二、Kafka 的核心角色与职责边界</a> </li><li class="toc-depth-3"> <a href="#三topic-与-partition数据如何切分">三、Topic 与 Partition：数据如何切分</a> </li><li class="toc-depth-3"> <a href="#四一次完整的-produce--consume-生命周期">四、一次完整的 produce → consume 生命周期</a> </li><li class="toc-depth-3"> <a href="#五kraft-架构全貌">五、KRaft 架构全貌</a> </li><li class="toc-depth-3"> <a href="#六与-zookeeper-时代架构的差异">六、与 ZooKeeper 时代架构的差异</a> </li><li class="toc-depth-3"> <a href="#七面试高频追问">七、面试高频追问</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>

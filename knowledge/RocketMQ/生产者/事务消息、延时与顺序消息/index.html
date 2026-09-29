@@ -1,0 +1,467 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>事务消息、延时与顺序消息 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/%E4%BA%8B%E5%8A%A1%E6%B6%88%E6%81%AF%E3%80%81%E5%BB%B6%E6%97%B6%E4%B8%8E%E9%A1%BA%E5%BA%8F%E6%B6%88%E6%81%AF/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="事务消息、延时与顺序消息 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/%E4%BA%8B%E5%8A%A1%E6%B6%88%E6%81%AF%E3%80%81%E5%BB%B6%E6%97%B6%E4%B8%8E%E9%A1%BA%E5%BA%8F%E6%B6%88%E6%81%AF/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Kafka 侧也有一个叫「事务」的东西，名字接近，解决的却是完全不同的问题。这一篇先把这个坑填掉，再讲 RocketMQ 生产者独有的三项特性：事务消息、延时消息、顺序消息。普通发送的链路与失败判定在 发送流程、可靠性配…"/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Kafka 侧也有一个叫「事务」的东西，名字接近，解决的却是完全不同的问题。这一篇先把这个坑填掉，再讲 RocketMQ 生产者独有的三项特性：事务消息、延时消息、顺序消息。普通发送的链路与失败判定在 发送流程、可靠性配…"/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/" aria-current="page">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">事务消息、延时与顺序消息 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/RocketMQ/">RocketMQ</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">RocketMQ</span></li><li><span class="tag">生产者</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="事务消息延时与顺序消息">事务消息、延时与顺序消息</h2>
+<aside class="callout callout-info">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-5v-6m0-3h.01"></path></svg>来源</p>
+<p>基于 RocketMQ 5.x 官方文档的 transaction message、delay message 特性页与客户端<code dir="auto">TransactionListener</code>、<code dir="auto">MessageSelector</code> 接口整理。5.x 主线架构为 Proxy 加 gRPC 接入、Broker 侧由 Controller 模式承载高可用协调。
+<strong>数值口径</strong>：本篇的事务回查三项（<code dir="auto">transactionCheckMax</code>、<code dir="auto">transactionTimeOut</code>、<code dir="auto">transactionCheckInterval</code>）与 <code dir="auto">messageDelayLevel</code> 的类型和原始串已完成源码核实，直接写具体值并标注「RocketMQ 5.x 源码默认」。<strong>仍然不写的是「定时器/回查的实现精度」</strong>——5.x 定时器扫描间隔与回查调度的实际精度未核实，因此本篇只给这三项<strong>配置默认值</strong>，不给任何「实际会延迟多少毫秒」的结论。凡涉及该类配置处均附「默认值随版本变化，以你所用版本的官方文档为准」。</p>
+</aside>
+<p>Kafka 侧也有一个叫「事务」的东西，名字接近，解决的却是完全不同的问题。这一篇先把这个坑填掉，再讲 RocketMQ 生产者独有的三项特性：事务消息、延时消息、顺序消息。普通发送的链路与失败判定在 <a href="/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B%E3%80%81%E5%8F%AF%E9%9D%A0%E6%80%A7%E9%85%8D%E7%BD%AE%E4%B8%8E%E9%87%8D%E8%AF%95/">发送流程、可靠性配置与重试</a>。</p>
+<h3 id="一事务消息要解决什么">一、事务消息要解决什么</h3>
+<h4 id="11-问题的形状两类失败不对称">1.1 问题的形状：两类失败不对称</h4>
+<p>业务代码要做的两件事是「发消息」和「提交本地事务」。它们分属两个系统，<strong>没有共同的提交点</strong>，于是出现两类方向相反的失败：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">顺序</th><th align="left">第一步</th><th align="left">第二步失败</th><th align="left">后果</th></tr></thead><tbody><tr><td align="left">先发消息后提交事务</td><td align="left">消息已到 Broker</td><td align="left">本地事务回滚</td><td align="left">消费者收到一条<strong>业务上根本不存在</strong>的消息，下游据此做了动作</td></tr><tr><td align="left">先提交事务后发消息</td><td align="left">本地事务已提交</td><td align="left">消息发不出去</td><td align="left">业务状态已变，下游<strong>永远不知道</strong>这次变更发生过</td></tr></tbody></table></div>
+<p>普通发送 API 对这两类都无能为力，因为它只负责「把消息写进 Broker」，并不知道业务事务的成败。</p>
+<h4 id="12-为什么-kafka-的事务解决不了这件事">1.2 为什么 Kafka 的事务解决不了这件事</h4>
+<p>这是本主题最容易被面试官追着问的点，必须一次讲对。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left"></th><th align="left">Kafka 事务</th><th align="left">RocketMQ 事务消息</th></tr></thead><tbody><tr><td align="left">作用对象</td><td align="left">Kafka <strong>内部</strong>的多个分区与多个 topic</td><td align="left">业务<strong>本地事务</strong>与消息发送之间的一致性</td></tr><tr><td align="left">原子性范围</td><td align="left">一批消息对消费者要么全可见要么全不可见；消费位点可与生产动作一起提交</td><td align="left">一条消息与一次本地事务的最终状态对齐</td></tr><tr><td align="left">涉及外部资源</td><td align="left"><strong>不涉及</strong>。数据库、缓存、第三方系统全在事务之外</td><td align="left">涉及。本地事务可以是任意关系型数据库的提交</td></tr><tr><td align="left">能否替代</td><td align="left">不能</td><td align="left">不能。RocketMQ 事务消息不提供跨分区批量原子可见，也不提交消费位点</td></tr></tbody></table></div>
+<p>一句话切分：<strong>Kafka 事务的边界在消息系统内部，RocketMQ 事务消息的边界跨出消息系统。</strong> 两者互补，不互相覆盖。Kafka 侧机制见 <a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>。</p>
+<h4 id="13-事务消息给出的保证边界">1.3 事务消息给出的保证边界</h4>
+<p>它保证的是：<strong>当本地事务的最终状态可以被回答时，这条消息最终要么对消费者可见、要么永不出现。</strong> 注意前提是「可以被回答」。第四节会讲清「不能被回答」时会发生什么，这也是最容易被夸大成「绝对可靠」的地方。</p>
+<h3 id="二half-消息的写入路径">二、half 消息的写入路径</h3>
+<p>half 消息是事务消息的中间态。理解它的关键只有一句：</p>
+<blockquote>
+<p><strong>half 消息对消费者不可见，但它已经落盘了。</strong></p>
+</blockquote>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">sequenceDiagram</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant P as Producer</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">participant B as Broker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>B: 发送 half 消息（标记为待定）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B->>B: 按普通路径写入，落盘成功</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over B: 消息已存在，但不进入消费者可读范围</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>P: 执行本地事务</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P->>B: 提交 / 回滚</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B->>B: 按结果处置：可见 或 丢弃</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B--xP: 未收到处置时触发回查</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">P-->>B: 回查：本地事务最终状态是什么</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B->>B: 按回查结果处置</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="sequenceDiagram  participant P as Producer  participant B as Broker  P->>B: 发送 half 消息（标记为待定）  B->>B: 按普通路径写入，落盘成功  Note over B: 消息已存在，但不进入消费者可读范围  P->>P: 执行本地事务  P->>B: 提交 / 回滚  B->>B: 按结果处置：可见 或 丢弃  B--xP: 未收到处置时触发回查  P-->>B: 回查：本地事务最终状态是什么  B->>B: 按回查结果处置"><div></div></button></div></figure></div>
+<p>三点必须说清，它们与普通消息的差别全在这里：</p>
+<ol>
+<li><strong>它走的是与普通消息完全相同的写入路径。</strong> 校验、选队列、写日志、建索引，一步不少。也就是说 half 消息同样会触发刷盘与复制判定，同样可能返回刷盘超时这类不确定状态。事务消息不是在普通发送外面套一层壳。</li>
+<li><strong>不可见的实现方式是「不让消费者读到」，不是「不写」。</strong> 消息在存储层是真实存在的，只是消费者的读取范围不覆盖它。这解释了为什么后续的提交与回滚可以很快完成：不需要再写一份数据，只需改变它的可见性。</li>
+<li><strong>不可见是有代价的。</strong> 从 half 消息写入到最终处置完成，这段时间内消息对消费者不可见。这段时间等于「本地事务耗时 + 处置往返」。事务越长，这段不可见窗口越长。顺序消息的原理见第七节，事务消息与它的组合使用见第八节。</li>
+</ol>
+<p><strong>但 half 消息在两个地方被显式区别对待，这两个细节是「事务消息为什么能成立」的关键：</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">事实</th><th align="left">值</th><th align="left">为什么</th></tr></thead><tbody><tr><td align="left">half 消息强制 <code dir="auto">setWaitStoreMsgOK</code></td><td align="left"><strong><code dir="auto">false</code></strong></td><td align="left">半消息写入成功即代表「已安全暂存」，不需要在这一步阻塞等落盘确认。状态判定交给之后的回查机制，所以不等待反而是必需的</td></tr><tr><td align="left"><code dir="auto">SendStatus</code> 三个失败态的映射</td><td align="left"><code dir="auto">FLUSH_DISK_TIMEOUT</code>、<code dir="auto">FLUSH_SLAVE_TIMEOUT</code>、<code dir="auto">SLAVE_NOT_AVAILABLE</code> <strong>一律映射为 <code dir="auto">LocalTransactionState.ROLLBACK_MESSAGE</code></strong></td><td align="left">普通消息把这三个状态留给业务「先查再定」，事务消息<strong>保守回滚</strong>。半消息本来就不可见，回滚掉不损失任何下游可见性</td></tr></tbody></table></div>
+<p><strong>第二条与普通消息正相反，是高频错点。</strong> 普通消息遇到「不确定」要查、要权衡；事务消息遇到同样的不确定直接判回滚。原因在于两者的兜底代价不同：普通消息已经对消费者可见，回滚等于制造不一致，所以宁可交给业务判定；half 消息还没人看得见，直接丢掉是安全方向。<strong>注意 <code dir="auto">waitStoreMsgOK</code> 在 5.x 是逐条消息属性而不是 Broker 配置项</strong>，普通消息缺省为 <code dir="auto">true</code>，详见 <a href="/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B%E3%80%81%E5%8F%AF%E9%9D%A0%E6%80%A7%E9%85%8D%E7%BD%AE%E4%B8%8E%E9%87%8D%E8%AF%95/">发送流程、可靠性配置与重试</a> 第 2.1 节。</p>
+<p><strong>常见误解纠正</strong>：不是「先发消息成功、再撤销」。half 消息的存在是必需的，因为<strong>只有消息已经可靠地躺在 Broker 上，后续才有「处置」这个动作可做</strong>。如果第一步没写进去，本地事务回滚时就只能依赖业务侧自己去清理，而那正是事务消息要消除的场景。</p>
+<h3 id="三本地事务与回查机制">三、本地事务与回查机制</h3>
+<p>客户端通过事务发送入口发起请求，并在回调里实现两件事：执行本地事务、报告它的结果。回调本身要区分三种结论：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">回调返回的结论</th><th align="left">含义</th><th align="left">Broker 的处置</th></tr></thead><tbody><tr><td align="left">提交</td><td align="left">本地事务已成功</td><td align="left">消息转为对消费者可见</td></tr><tr><td align="left">回滚</td><td align="left">本地事务已失败</td><td align="left">消息被丢弃，永不出现</td></tr><tr><td align="left">未知</td><td align="left">现在判断不了</td><td align="left">暂不处置，转入回查流程</td></tr></tbody></table></div>
+<p>「未知」这一档是整套机制的核心。如果只有提交与回滚两种结论，Broker 就必须接受「客户端给的结论」作为最终答案，而客户端给出的结论恰好可能是在网络中断、进程崩溃这类时刻做出的猜测。允许返回「未知」，等于承认<strong>客户端无法保证自己一定知道结果</strong>，于是把裁决权交回 Broker，由它去问。</p>
+<p><strong>本地事务执行的常见错误写法是「执行完再报告，中途抛异常也报告提交」。</strong> 正确做法是捕获异常后报告回滚或未知，绝不能在事务实际失败时报告提交。异常路径上的这个返回值，是整套机制唯一的正确性来源。</p>
+<p>客户端侧要实现的是一个事务状态监听器，承担两个回调：<strong>执行本地事务</strong>（返回上述三种结论之一）与<strong>回查本地事务状态</strong>（只回答状态，不再执行业务逻辑）。这个区分很重要：回查<strong>不允许</strong>再去做一遍业务动作，它只做状态回答。</p>
+<h3 id="四回查的代价与局限">四、回查的代价与局限</h3>
+<p>这是本特性最需要讲冷静的一节。回查不是「Broker 无限次问你直到你答对」，它有明确的代价与终止条件。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">A[half 消息写入成功] --> B[客户端报告结论]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|提交| C[消息可见]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|回滚| D[消息丢弃]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B -->|未知| E[进入回查流程]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">E --> F[Broker 发起回查&#x3C;br/>生产者回答本地事务状态]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">F --> G{回查次数是否已达上限?}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">G -->|未达且答得出| H{回答什么?}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">G -->|已达上限| I[按兜底策略处置&#x3C;br/>本篇不给具体行为&#x3C;br/>以你所用版本文档为准]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">H -->|已提交| C</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">H -->|未提交| D</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">H -->|仍答不出| G</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">I --> J[消息不会停留在&#x3C;br/>「消费者可见但状态错误」态]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  A[half 消息写入成功] --> B[客户端报告结论]  B -->|提交| C[消息可见]  B -->|回滚| D[消息丢弃]  B -->|未知| E[进入回查流程]  E --> F[Broker 发起回查<br/>生产者回答本地事务状态]  F --> G{回查次数是否已达上限?}  G -->|未达且答得出| H{回答什么?}  G -->|已达上限| I[按兜底策略处置<br/>本篇不给具体行为<br/>以你所用版本文档为准]  H -->|已提交| C  H -->|未提交| D  H -->|仍答不出| G  I --> J[消息不会停留在<br/>「消费者可见但状态错误」态]"><div></div></button></div></figure></div>
+<p>代价有五处，按重要性排：</p>
+<ol>
+<li><strong>回查有次数上限，达到上限后由兜底策略处置。</strong> 该上限是 <code dir="auto">transactionCheckMax</code>，<strong>RocketMQ 5.x 源码默认为 15</strong>。要记住的是它的存在意义：<strong>回查不会永远进行</strong>，这条消息一定会得到一个终态处置，不存在永远悬着的 half 消息。</li>
+<li><strong>回查期间消息对消费者不可见。</strong> 本地事务慢，或者反复回查答不出，消息就迟迟不出现。现象是「下游一直没收到消息」，而上游业务其实早已完成。这是事务消息最典型的排障入口：<strong>先查本地事务耗时与状态可查性，而不是先怀疑消息丢了。</strong></li>
+<li><strong>回查是 Broker 主动发起的额外往返。</strong> 每次回查都是一次跨进程调用，会增加 Broker 与生产者之间的交互量。本地事务越慢、未知状态越多，回查越频繁。</li>
+<li><strong>依赖「本地事务状态可查」。</strong> 进程重启后回查仍然会发生，此时只能靠持久化的状态记录回答。如果本地事务的结果只存在于内存，进程一重启就答不出，回查只能持续消耗预算直到上限。<strong>这是使用事务消息的前置条件，不是可选项。</strong> 落地方式通常是在本地事务的同一张表里写入一个状态字段，让回查有地方可读。</li>
+<li><strong>它不解决消费侧的重复。</strong> 事务消息对齐的是「消息」与「本地事务」，不是「消费」与「本地事务」。消费者读位点回退、消费组重平衡导致的重复仍然存在，那部分责任在消费侧，见 <a href="/knowledge/RocketMQ/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/%E4%BA%8B%E5%8A%A1%E8%BE%B9%E7%95%8C%E4%B8%8E%E5%8E%BB%E9%87%8D%E7%BA%A6%E6%9D%9F/">事务边界与去重约束</a>。</li>
+</ol>
+<h4 id="41-三个回查相关配置给默认值但不给精度">4.1 三个回查相关配置：给默认值，但不给精度</h4>
+<p>事务回查的三个参数都已核实，可以直接引用：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">配置项</th><th align="left">RocketMQ 5.x 源码默认</th><th align="left">作用</th><th align="left">归属类</th></tr></thead><tbody><tr><td align="left"><code dir="auto">transactionCheckMax</code></td><td align="left"><strong>15</strong></td><td align="left">回查次数上限，达到后走兜底处置</td><td align="left"><code dir="auto">BrokerConfig</code></td></tr><tr><td align="left"><code dir="auto">transactionTimeOut</code></td><td align="left"><strong>6000 毫秒</strong>（源码写作 <code dir="auto">6*1000</code>）</td><td align="left">事务消息的判定超时时间</td><td align="left"><code dir="auto">BrokerConfig</code></td></tr><tr><td align="left"><code dir="auto">transactionCheckInterval</code></td><td align="left"><strong>30000 毫秒</strong>（源码写作 <code dir="auto">30*1000</code>）</td><td align="left">两次回查之间的检查间隔</td><td align="left"><code dir="auto">BrokerConfig</code></td></tr></tbody></table></div>
+<p>两个必须同时说清的点：</p>
+<ol>
+<li><strong>字段归属要写对。</strong> 曾有资料把这三个字段归到 <code dir="auto">TransactionCheckConfig</code> 这个类，<strong>该类在 5.x 已经不存在，字段已并入 <code dir="auto">BrokerConfig</code></strong>。查资料时如果看到 <code dir="auto">TransactionCheckConfig</code>，那是旧版结构。</li>
+<li><strong>这三个是配置默认值，不是实现精度。</strong> 5.x 定时器与回查调度的<strong>实际精度未核实</strong>，因此不能由「检查间隔 30000 毫秒」推出「消息一定在 30 秒内被回查一次」这类结论。间隔参数说的是「多久发起一轮检查」，实际触发时机还受调度实现影响。<strong>默认值随版本变化，以你所用版本的官方文档为准。</strong></li>
+</ol>
+<p><strong>因此禁止的表述是把事务消息说成「绝对可靠」或「彻底解决一致性问题」。</strong> 准确的表述是：它把「消息已发出但业务回滚」这类不一致收敛掉，代价是引入一段不可见窗口与一次回查往返，而<strong>成立的前提是本地事务的最终状态可以被回答</strong>。前提不满足时，机制退化，这一点必须主动说出来。</p>
+<h3 id="五延时消息定时器机制">五、延时消息：定时器机制</h3>
+<p>延时消息要解决的是「消息不能立即被消费，要等一个到期时间之后才可投递」。</p>
+<p>实现路径可以概括为「<strong>先暂存，到期再投递</strong>」：</p>
+<ol>
+<li>发送时在消息上标记延时属性</li>
+<li>Broker 校验该属性，把消息写进用于延时投递的暂存结构，而不是直接进入消费者可读范围</li>
+<li>定时器周期性扫描，挑选出到期需要投递的消息</li>
+<li>把它重新写入（或投递到）真实主题</li>
+<li>消费者按普通消息消费</li>
+</ol>
+<p>与传统写法的差异点在于第 2 步的暂存方式：早期版本按预设的级别把消息归入不同档位的队列，级别到点后统一转投；较新的实现引入了定时器能力，可以让到期时间表达得更细。两者的差别属于版本差异，<strong>本篇只描述「定时器到期投递」这一层语义</strong>。</p>
+<p>三个必须说清的点：</p>
+<ol>
+<li><strong>延时不是「延迟消费」，而是「延迟可见」。</strong> 到期之前消息在 Broker 上，代价是存储占用，收益是消费者不必在线等待。消费者挂掉或消费慢都不会让消息过期。</li>
+<li><strong>到期不等于立刻被消费。</strong> 定时器只把消息送回真实主题，之后还要经过读取、拉取、业务处理这一整段。业务上观察到的到达时间一定晚于到期时间。</li>
+<li><strong>定时器是 Broker 侧的集中调度。</strong> 到期投递的精度受扫描间隔影响，不是「设了就准点触发」。见第六节。</li>
+</ol>
+<h3 id="六延时精度与-messagedelaylevel">六、延时精度与 messageDelayLevel</h3>
+<p><strong>先划清一条界：延时消息的「精度」不是毫秒级的定时器，而是档位级的映射。</strong> 传统实现里，开发者指定的是一个「级别」，级别到时长的对应关系由 Broker 侧的 <code dir="auto">messageDelayLevel</code> 定义。这带来一个直接后果：<strong>能表达的时间点是有限的集合</strong>，不是任意时刻。需要任意时刻的场景要靠定时器能力而不是靠调级别。</p>
+<h4 id="61-messagedelaylevel-的类型是-string不是整数">6.1 <code dir="auto">messageDelayLevel</code> 的类型是 <code dir="auto">String</code>，不是整数</h4>
+<p>这是本主题第二号易错点。「<code dir="auto">messageDelayLevel</code> 是整数、默认 18」这个说法<strong>半错</strong>，错在前半句：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">项目</th><th align="left">事实</th></tr></thead><tbody><tr><td align="left">源码类型</td><td align="left"><strong><code dir="auto">String</code></strong>，不是 int</td></tr><tr><td align="left">形态</td><td align="left">空格分隔的<strong>时长表</strong>，配置里写的是一串带单位的时长</td></tr><tr><td align="left">RocketMQ 5.x 源码默认</td><td align="left"><code dir="auto">1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h</code></td></tr><tr><td align="left">支持的时间单位</td><td align="left"><code dir="auto">s</code> / <code dir="auto">m</code> / <code dir="auto">h</code> / <code dir="auto">d</code>，5.x 的 parser 支持<strong>天</strong></td></tr><tr><td align="left">级别数量</td><td align="left"><strong>18 级</strong>，由上表 split 之后的<strong>索引推导</strong>得出</td></tr><tr><td align="left">是否为配置项</td><td align="left"><strong>不是</strong>。它是运行时推导结果，配置里没有「级别数」这个字段</td></tr></tbody></table></div>
+<p><strong>所以正确说法是：<code dir="auto">messageDelayLevel</code> 是一张空格分隔的时长表，源码默认 18 个时长，18 级是 split 之后的推导结果，不是一个整数配置项。</strong></p>
+<p>配套的两条否定式事实，一并记清：</p>
+<ul>
+<li><strong>不存在名为 <code dir="auto">defaultMessageDelayLevel</code> 的配置项。</strong> 查不到是正常的，源码里没有这个东西。</li>
+<li><strong>级别数由 <code dir="auto">maxDelayLevel</code> 在 <code dir="auto">parseDelayLevel()</code> 里运行时推导</strong>，不是读配置得到的。想改级别集合，正确的做法是改 <code dir="auto">messageDelayLevel</code> 这张表本身。</li>
+</ul>
+<p><strong>表里能加 <code dir="auto">d</code>（天）这件事值得单独提一句</strong>，因为很多二手文章按更老的印象说「最长只能配到小时级」，于是把超长延时（几小时后、几天后）误判为不可实现。实际上 5.x 的 parser 认天，日级延时不需要绕道。<strong>但这说的是「能配置多长」，不是「到期精度有多准」</strong>，两件事不要混。</p>
+<h4 id="62-精度受三段影响">6.2 精度受三段影响</h4>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">影响段</th><th align="left">原因</th><th align="left">方向</th></tr></thead><tbody><tr><td align="left">定时器扫描间隔</td><td align="left">定时器按周期扫描，到期消息最多滞后一个扫描周期</td><td align="left">偏晚</td></tr><tr><td align="left">级别映射</td><td align="left">级别本身是离散档位，指定的级别对应的是该档位的时长而非你想要的精确时刻</td><td align="left">偏晚或偏早</td></tr><tr><td align="left">投递与拉取</td><td align="left">到期后还要走投递、消费者拉取、业务处理</td><td align="left">偏晚</td></tr></tbody></table></div>
+<p><strong>5.x 定时器的实际实现精度未核实</strong>，因此本节只给「配置默认值」，不给「实际会偏多少毫秒」的结论。</p>
+<p><strong>所以「我设了延时它却早到了」通常不是 bug，而是级别映射的正常结果</strong>（选了比目标时刻更小的一个档位）。反过来「设了却没按时到」多数落在前两段，排查顺序是先确认级别选对了没有，再看定时器侧有没有积压。</p>
+<p>两个使用建议：</p>
+<ul>
+<li><strong>不要用延时消息做精密调度。</strong> 需要精确到某个业务时刻的触发（订单超时关单要用到秒级以上精度的场景），应改用外部调度系统（定时任务框架或分布式调度）加幂等检查。延时消息适合的是「大致在某个时间窗内可投递」。</li>
+<li><strong>超长延时的消息会一直占着存储。</strong> 级别很大意味着消息可能在 Broker 上停留很久，磁盘与索引的占用是实时的。要评估的是这段时间内的消息量，而不是峰值 QPS。</li>
+</ul>
+<h3 id="七顺序消息messagequeueselector">七、顺序消息：MessageQueueSelector</h3>
+<p>RocketMQ 的 <code dir="auto">MessageQueueSelector</code> 是一个客户端接口，属于「语义稳定、机制可写」那一档。它的作用非常单一：<strong>由业务代码提供一个选择函数，用业务键决定消息落到哪个 <code dir="auto">MessageQueue</code>。</strong></p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">A[带同一业务键的消息 1] --> S[MessageQueueSelector]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">B[带同一业务键的消息 2] --> S</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">C[带同一业务键的消息 3] --> S</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">D[带其他业务键的消息] --> T[另一组选择结果]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">S --> Q1[固定落到 MessageQueue A]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">T --> Q2[固定落到 MessageQueue B]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">Q1 --> E[该队列的写入顺序&#x3C;br/>即业务键的相对顺序]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">Q2 --> F</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">E --> G[消费侧对队列 A 单线程串行消费]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">G --> H[同一业务实体的消息按序到达]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD  A[带同一业务键的消息 1] --> S[MessageQueueSelector]  B[带同一业务键的消息 2] --> S  C[带同一业务键的消息 3] --> S  D[带其他业务键的消息] --> T[另一组选择结果]  S --> Q1[固定落到 MessageQueue A]  T --> Q2[固定落到 MessageQueue B]  Q1 --> E[该队列的写入顺序<br/>即业务键的相对顺序]  Q2 --> F  E --> G[消费侧对队列 A 单线程串行消费]  G --> H[同一业务实体的消息按序到达]"><div></div></button></div></figure></div>
+<p><strong>它只解决了一半问题。</strong> 完整保序需要两侧同时成立：</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">环节</th><th align="left">要求</th><th align="left">破坏后的现象</th></tr></thead><tbody><tr><td align="left">发送侧选择</td><td align="left">同一业务键经选择函数固定落到同一 <code dir="auto">MessageQueue</code></td><td align="left">同一实体的消息散到不同队列，顺序无从建立</td></tr><tr><td align="left">队列写入</td><td align="left">同一队列内的消息按到达顺序追加</td><td align="left">队列本身是 FIFO，这一段天然成立</td></tr><tr><td align="left">消费侧并发</td><td align="left"><strong>同一队列必须单线程串行消费</strong></td><td align="left"><strong>并发消费直接破坏顺序</strong></td></tr><tr><td align="left">消费失败重试</td><td align="left">顺序语义下失败即阻塞，后来消息必须等</td><td align="left">若跳过失败消息继续往后消费，顺序就断了</td></tr></tbody></table></div>
+<p>四个破坏顺序的典型场景，面试常问：</p>
+<ol>
+<li><strong>同队列并发消费。</strong> 这是最直接的破坏。选择器保证了进哪个队列，但保证不了消费时只有一个线程。集群消费模式下多个消费者实例分摊队列，同一队列落到不同实例就可能并发处理。正确做法是让同一业务键对应的队列始终由单消费者实例串行处理。</li>
+<li><strong>失败重试。</strong> 顺序消费下，某个消息处理失败时<strong>不能跳过它去处理后面的消息</strong>，只能阻塞等待。因此顺序消息的重试代价是「队列停等」，这也意味着顺序消息的可用性与失败处理策略要一起设计，重试队列与死信机制见 <a href="/knowledge/RocketMQ/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%87%8D%E8%AF%95%E3%80%81%E6%AD%BB%E4%BF%A1%E4%B8%8E%E6%B6%88%E8%B4%B9%E5%A0%86%E7%A7%AF/">重试、死信与消费堆积</a>。</li>
+<li><strong>发送侧多实例用同一业务键。</strong> 多个生产者实例同时用同一个键发送时，消息在多个实例上并行发出，到达顺序由网络与线程调度决定，<strong>选择器救不了这一层</strong>。同一实体的生产应当集中或串行化。</li>
+<li><strong>队列扩缩容与路由变化。</strong> 业务键到队列的映射依赖当前的队列列表。队列数量变化后，同一业务键可能被映射到不同队列，迁移期的顺序就断了。顺序消息对拓扑变更的敏感度高于普通消息。</li>
+</ol>
+<p><strong>全局顺序只有一条路：全进一个队列。</strong> 代价是这一主题的有效并行度降到 1，吞吐塌陷。Kafka 侧的对照是 <a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%A1%BA%E5%BA%8F%E6%B6%88%E8%B4%B9%E4%B8%8E%E7%A7%AF%E5%8E%8B%E5%A4%84%E7%90%86/">顺序消费与积压处理</a>，两者的保序前提相近，但入口不同：Kafka 的唯一客户端入口是 <code dir="auto">key</code> 的哈希取模，RocketMQ 这边是显式的选择器接口。</p>
+<h3 id="八三种特性各自解决的问题">八、三种特性各自解决的问题</h3>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">特性</th><th align="left">解决什么问题</th><th align="left">实现代价</th><th align="left">适用场景</th><th align="left">不适用时该用什么</th></tr></thead><tbody><tr><td align="left">事务消息</td><td align="left">业务本地事务与发消息之间的一致性，避免「消息已发但业务回滚」与「业务已提交但消息没发」</td><td align="left">一段不可见窗口 + 一次回查往返 + 要求本地事务状态可持久化查询 + 回查次数上限</td><td align="left">订单、支付、库存这类「状态变更必须通知下游」且本地事务有状态表的场景</td><td align="left">本地事务本身就是单资源且顺序无要求时，普通发送加业务侧补偿即可</td></tr><tr><td align="left">延时消息</td><td align="left">消息在到期之前不可见，简化「一段时间后再说」</td><td align="left">存储占用 + 定时器集中调度 + 精度受扫描间隔与级别映射限制</td><td align="left">订单超时、延迟检查、定时提醒这类「时间窗内投递即可」</td><td align="left">需要精确到具体业务时刻的调度，用外部定时任务系统</td></tr><tr><td align="left">顺序消息</td><td align="left">同一业务实体的消息按发送顺序被处理</td><td align="left">单队列串行消费带来的吞吐上限 + 失败即阻塞 + 对拓扑变更敏感</td><td align="left">状态机流转、余额变动、操作序列这类「后到的必须看到先到的」</td><td align="left">顺序不重要时用普通发送加业务侧按序号重排</td></tr></tbody></table></div>
+<p>三者可以叠加，但要清楚叠加后的代价是<strong>相加</strong>的：事务消息加顺序消息，意味着顺序消费下还要处理本地事务失败导致的不可见窗口；两者叠加后排查时很难分清「消息没到」是事务未提交还是队列被前一条消息阻塞。<strong>同时用上两项以上时，先确认是不是在用消息系统解决本不该由它解决的问题。</strong></p>
+<h3 id="九面试高频追问">九、面试高频追问</h3>
+<p><strong>1. RocketMQ 事务消息和 Kafka 事务是一回事吗？</strong></p>
+<p>答题骨架：不是，切分点是<strong>作用边界</strong>。Kafka 事务的作用对象全在 Kafka 内部：跨分区跨 topic 的原子可见，以及把消费位点与生产动作放进同一次提交，它不涉及任何外部资源。RocketMQ 事务消息解决的是<strong>业务本地事务与发消息的一致性</strong>，本地事务可以是任意数据库提交。两个方向互补：需要跨分区原子可见时 Kafka 事务更合适，需要本地事务对齐时 Kafka 事务做不到。详见第一节。</p>
+<p><strong>2. half 消息和普通消息有什么区别？消费者什么时候能看到它？</strong></p>
+<p>答题骨架：三点，缺一不可。走的是完全相同的写入路径，校验、选队列、落盘、建索引一步不少。区别只在可见性：half 消息在存储层真实存在，但不进入消费者可读范围，本地事务有确定结论（提交或回滚）之后才改变它的可见性。所以它不是「先发出去再撤销」，而是一直在，只是不可见。消费者在整个未决期间看不到它，这也正是「不可见窗口」的来源。<strong>要加两个源码级细节，显出读过源码</strong>：一是 half 消息会被强制 <code dir="auto">setWaitStoreMsgOK(false)</code>，即不等落盘确认就返回，因为写入成功已代表安全暂存，状态判定交给回查；二是 <code dir="auto">SendStatus</code> 的三个失败态在事务路径上<strong>一律映射为 <code dir="auto">ROLLBACK_MESSAGE</code></strong>，也就是直接保守回滚，这与普通消息「先查再定」正相反。详见第二节。</p>
+<p><strong>3. 回查机制能保证什么？不能保证什么？</strong></p>
+<p>答题骨架：分「能」和「不能」两侧。能：把「消息已发出但本地事务回滚」这类不一致收敛掉；当本地事务的最终状态可被回答时，消息的终态与之一致。不能与代价：回查有次数上限，<code dir="auto">transactionCheckMax</code> <strong>RocketMQ 5.x 源码默认 15</strong>，另有 <code dir="auto">transactionTimeOut</code> 默认 6000 毫秒、<code dir="auto">transactionCheckInterval</code> 默认 30000 毫秒；回查期间消息对消费者不可见，本地事务越慢窗口越长；回查是额外往返，交互量随未知状态增加；最关键的是它<strong>依赖本地事务状态可持久化查询</strong>，这个前提不成立时机制退化。另外它不解决消费侧重复。<strong>再说一句这三个值不是精度</strong>：5.x 定时器与回查调度的实际精度未核实，不能由「间隔 30000 毫秒」推出「一定 30 秒内回查一次」。<strong>禁止说成「绝对可靠」。</strong> 详见第四节。</p>
+<p><strong>4. 事务消息的回查为什么不是无限次的？</strong></p>
+<p>答题骨架：先给数。<code dir="auto">transactionCheckMax</code>，<strong>RocketMQ 5.x 源码默认 15</strong>，达到上限后按兜底策略处置。再说为什么必须有上限：Broker 侧要有终止条件，无限回查会让一条永远答不出状态的消息永久占用存储，并且把回查请求无限打给生产者，这既是资源问题也是对生产者的骚扰。<strong>附带一个源码级加分点</strong>：这三个字段在 5.x 位于 <code dir="auto">BrokerConfig</code>，<strong><code dir="auto">TransactionCheckConfig</code> 这个类已不存在</strong>，查资料时看到它说明用的是旧版结构。兜底处置的目标是让消息<strong>不会停留在「消费者可见但状态错误」这个态</strong>，而是落到一个确定结果上。详见第四节 4.1。</p>
+<p><strong>5. 延时消息的精度能到毫秒吗？</strong></p>
+<p>答题骨架：不能按毫秒理解，分两层答。<strong>档位层</strong>：传统实现里指定的是<strong>级别</strong>，级别到时长的对应关系由 <code dir="auto">messageDelayLevel</code> 定义，因此能表达的时间点是离散档位而不是任意时刻。<strong>这题的关键是把类型说对</strong>：<code dir="auto">messageDelayLevel</code> 的源码类型是 <strong><code dir="auto">String</code></strong>，是空格分隔的时长表，5.x 默认 <code dir="auto">1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h</code>，共 <strong>18 级由 split 后推导</strong>，支持 <code dir="auto">s</code>/<code dir="auto">m</code>/<code dir="auto">h</code>/<code dir="auto">d</code> 四种单位。<strong>常见误解是「它是整数、默认 18」，这半错</strong>：18 是推导结果不是配置值，而且<strong>不存在 <code dir="auto">defaultMessageDelayLevel</code> 这个配置项</strong>，级别数由 <code dir="auto">maxDelayLevel</code> 运行时推导。<strong>精度层</strong>：实际到达时刻还要叠加定时器扫描间隔的滞后与到期后的投递、拉取；5.x 定时器的实际实现精度未核实，所以不要给「会偏多少毫秒」的结论。结论：要精确到具体业务时刻的场景应该用外部调度系统，不要靠延时消息。详见第六节。</p>
+<p><strong>6. 延时消息是「延迟消费」还是「延迟可见」？</strong></p>
+<p>答题骨架：延迟可见。到期之前消息在 Broker 上、消费者读不到，所以消费者挂掉或消费慢都不会让消息过期，代价是这段时间的存储占用。延迟消费是另一回事，意思是先给消费者看、处理时再判断该不该跳过，机制与代价完全不同。「先暂存、到期再投递」讲的是前者。</p>
+<p><strong>7. 顺序消息只配 <code dir="auto">MessageQueueSelector</code> 就够了吗？</strong></p>
+<p>答题骨架：不够，它只解决一半。发送侧用选择器把同一业务键固定到同一 <code dir="auto">MessageQueue</code>；消费侧<strong>同一队列必须单线程串行消费</strong>，并发消费直接破坏顺序。还要主动说三个破坏点：顺序语义下失败重试就是阻塞（队列停等，不能跳过后面的），发送侧多实例用同一键会并行发出而选择器救不了这一层，队列扩缩容或路由变化会让同一键落到不同队列。详见第七节。</p>
+<p><strong>8. 顺序消息能做到全局有序吗？代价是什么？</strong></p>
+<p>答题骨架：能，但只有一条路：所有消息进同一个 <code dir="auto">MessageQueue</code>。代价是该主题的有效并行度降到 1，吞吐塌陷，而且队首一条处理失败就会停等后面全部。实践中做局部有序（按业务键）比做全局有序常见得多。Kafka 侧是同一个取舍，见 <a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%A1%BA%E5%BA%8F%E6%B6%88%E8%B4%B9%E4%B8%8E%E7%A7%AF%E5%8E%8B%E5%A4%84%E7%90%86/">顺序消费与积压处理</a>。</p>
+<p><strong>9. 这三项特性能不能一起用？</strong></p>
+<p>答题骨架：能，代价相加。最容易出事的是事务消息加顺序消息：顺序消费下还要处理本地事务未提交导致的不可见窗口，排查时很难分清「消息没到」是事务未决还是队列被前一条阻塞。给出建议：同时用两项以上时先确认是不是在用消息系统解决本不该由它解决的问题。详见第八节。</p>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/RocketMQ%E7%94%9F%E4%BA%A7%E8%80%85%E7%B4%A2%E5%BC%95/">RocketMQ 生产者索引</a>：本主题索引页</li>
+<li><a href="/knowledge/RocketMQ/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B%E3%80%81%E5%8F%AF%E9%9D%A0%E6%80%A7%E9%85%8D%E7%BD%AE%E4%B8%8E%E9%87%8D%E8%AF%95/">发送流程、可靠性配置与重试</a>：half 消息走的正是这条写入路径</li>
+<li><a href="/knowledge/RocketMQ/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/%E4%BA%8B%E5%8A%A1%E8%BE%B9%E7%95%8C%E4%B8%8E%E5%8E%BB%E9%87%8D%E7%BA%A6%E6%9D%9F/">事务边界与去重约束</a>：事务消息对齐了消息与本地事务，消费侧重复仍需另外解决</li>
+<li><a href="/knowledge/RocketMQ/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/%E6%B6%88%E6%81%AF%E4%B8%A2%E5%A4%B1%E5%9C%BA%E6%99%AF%E4%B8%8E%E4%BF%9D%E9%9A%9C/">消息丢失场景与保障</a>：三段不可见窗口各自的丢失与延迟影响</li>
+<li><a href="/knowledge/RocketMQ/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%87%8D%E8%AF%95%E3%80%81%E6%AD%BB%E4%BF%A1%E4%B8%8E%E6%B6%88%E8%B4%B9%E5%A0%86%E7%A7%AF/">重试、死信与消费堆积</a>：顺序消息的失败重试为何会阻塞</li>
+<li><a href="/knowledge/RocketMQ/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E4%B8%8E%E5%86%85%E5%AD%98%E6%98%A0%E5%B0%84/">刷盘策略与内存映射</a>：half 消息同样要过刷盘与复制判定</li>
+<li><a href="/knowledge/RocketMQ/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/CommitLog%E3%80%81ConsumeQueue%E4%B8%8EIndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a>：half 消息已落盘但不可见的存储层落点</li>
+<li><a href="/knowledge/RocketMQ/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/RocketMQ%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">RocketMQ 架构全景与角色分工</a>：定时器与 Broker 角色的边界</li>
+<li><a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/Kafka%E7%94%9F%E4%BA%A7%E8%80%85%E7%B4%A2%E5%BC%95/">Kafka 生产者索引</a>：两套库目录同名但侧重不同的对照入口</li>
+<li><a href="/knowledge/Kafka/%E7%94%9F%E4%BA%A7%E8%80%85/%E5%B9%82%E7%AD%89%E3%80%81acks%E4%B8%8E%E4%BA%8B%E5%8A%A1/">幂等、acks 与事务</a>：Kafka 事务的边界在消息系统内部，与本篇互补</li>
+<li><a href="/knowledge/Kafka/%E6%B6%88%E8%B4%B9%E8%80%85%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%BB%84/%E9%A1%BA%E5%BA%8F%E6%B6%88%E8%B4%B9%E4%B8%8E%E7%A7%AF%E5%8E%8B%E5%A4%84%E7%90%86/">顺序消费与积压处理</a>：Kafka 侧的保序前提与代价对照</li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#事务消息延时与顺序消息">事务消息、延时与顺序消息</a> </li><li class="toc-depth-3"> <a href="#一事务消息要解决什么">一、事务消息要解决什么</a> </li><li class="toc-depth-3"> <a href="#二half-消息的写入路径">二、half 消息的写入路径</a> </li><li class="toc-depth-3"> <a href="#三本地事务与回查机制">三、本地事务与回查机制</a> </li><li class="toc-depth-3"> <a href="#四回查的代价与局限">四、回查的代价与局限</a> </li><li class="toc-depth-3"> <a href="#五延时消息定时器机制">五、延时消息：定时器机制</a> </li><li class="toc-depth-3"> <a href="#六延时精度与-messagedelaylevel">六、延时精度与 messageDelayLevel</a> </li><li class="toc-depth-3"> <a href="#七顺序消息messagequeueselector">七、顺序消息：MessageQueueSelector</a> </li><li class="toc-depth-3"> <a href="#八三种特性各自解决的问题">八、三种特性各自解决的问题</a> </li><li class="toc-depth-3"> <a href="#九面试高频追问">九、面试高频追问</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>

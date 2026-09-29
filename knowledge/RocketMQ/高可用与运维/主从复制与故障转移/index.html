@@ -1,0 +1,469 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>主从复制与故障转移 — 后端知识库 | 后端知识库</title><link rel="canonical" href="https://placeholder.invalid/knowledge/RocketMQ/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.18.2"/><meta name="generator" content="Starlight v0.34.8"/><meta property="og:title" content="主从复制与故障转移 — 后端知识库"/><meta property="og:type" content="article"/><meta property="og:url" content="https://placeholder.invalid/knowledge/RocketMQ/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="主从复制是 RocketMQ 里最容易被当成「Kafka 那一套」讲的一块。根子在于两套系统的协调哲学不同：Kafka 把一致性做进元数据层，RocketMQ 把它留在数据层，中间那台 NameServer 刻意不做共识…"/><meta property="og:site_name" content="后端知识库"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="主从复制是 RocketMQ 里最容易被当成「Kafka 那一套」讲的一块。根子在于两套系统的协调哲学不同：Kafka 把一致性做进元数据层，RocketMQ 把它留在数据层，中间那台 NameServer 刻意不做共识…"/><meta property="og:image" content="https://placeholder.invalid/og-default.png"><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/_astro/index.Bxnwkw1P.css"><script type="module" src="/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">跳转到内容</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/" class="site-title sl-flex astro-m46x6ez3">  <span class="astro-m46x6ez3" translate="no"> 后端知识库 </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;搜索&#34;}"> <button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">搜索</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="搜索" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> 取消 </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.CLg7mG-P.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="主要"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="菜单" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0000000" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script> <nav class="sidebar-tree" aria-label="知识库目录"><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/算法/">算法</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">动态规划</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/动态规划/DP优化/">DP 优化</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/不同的子序列II/">不同的子序列 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/乘积最大子数组/">乘积最大子数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/买卖股票的最佳时机III/">买卖股票的最佳时机 III</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划专项/">动态规划专项</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/动态规划索引/">动态规划索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/区间DP/">区间 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/单词拆分/">单词拆分</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/序列DP/">序列 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/打家劫舍/">打家劫舍</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/数位、概率与博弈DP/">数位、概率与博弈 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/最大子数组和/">最大子数组和</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/树形DP与换根/">树形 DP 与换根</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/状态压缩DP/">状态压缩 DP</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/线性DP与一维递推/">线性 DP 与一维递推</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/编辑距离/">编辑距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/背包问题/">背包问题</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/解码方法/">解码方法</a></li><li><a class="sidebar-link" href="/knowledge/算法/动态规划/通配符匹配/">通配符匹配</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二叉树</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉搜索树中第K小的元素/">二叉搜索树中第 K 小的元素</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树中的最大路径和/">二叉树中的最大路径和</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的右视图/">二叉树的右视图</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的最近公共祖先/">二叉树的最近公共祖先</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树的锯齿形层序遍历/">二叉树的锯齿形层序遍历</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/二叉树索引/">二叉树索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/从前序与中序遍历序列构造二叉树/">从前序与中序遍历序列构造二叉树</a></li><li><a class="sidebar-link" href="/knowledge/算法/二叉树/路径总和II/">路径总和 II</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">二分查找</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/二分查找/二分查找索引/">二分查找索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/在排序数组中查找元素的第一个和最后一个位置/">在排序数组中查找元素的第一个和最后一个位置</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/寻找两个正序数组的中位数/">寻找两个正序数组的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/找出第K小的数对距离/">找出第 K 小的数对距离</a></li><li><a class="sidebar-link" href="/knowledge/算法/二分查找/搜索旋转排序数组/">搜索旋转排序数组</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">哈希表与集合</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/哈希表与集合索引/">哈希表与集合索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/字母异位词分组/">字母异位词分组</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/最长连续序列/">最长连续序列</a></li><li><a class="sidebar-link" href="/knowledge/算法/哈希表与集合/缺失的第一个正数/">缺失的第一个正数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">滑动窗口与单调栈</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/串联所有单词的子串/">串联所有单词的子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/接雨水/">接雨水</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/无重复字符的最长子串/">无重复字符的最长子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串/">最小覆盖子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最小覆盖子串（剑指OfferII017）/">最小覆盖子串（剑指 Offer II 017）</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/最长有效括号/">最长有效括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/柱状图中最大的矩形/">柱状图中最大的矩形</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口与单调栈索引/">滑动窗口与单调栈索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/滑动窗口与单调栈/滑动窗口最大值/">滑动窗口最大值</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">回溯与递归</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/N皇后/">N 皇后</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/全排列/">全排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/删除无效的括号/">删除无效的括号</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/单词搜索/">单词搜索</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/回溯与递归索引/">回溯与递归索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/括号生成/">括号生成</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/电话号码的字母组合/">电话号码的字母组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/回溯与递归/组合总和/">组合总和</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">链表</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/链表/两两交换链表中的节点/">两两交换链表中的节点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/两数相加/">两数相加</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/删除链表的倒数第N个结点/">删除链表的倒数第 N 个结点</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/排序链表/">排序链表</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/链表索引/">链表索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/链表/随机链表的复制/">随机链表的复制</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/面试题/算法面试速查总表/">算法面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/算法/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">排序与选择</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/交易逆序对的总数/">交易逆序对的总数</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/合并区间/">合并区间</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/排序与选择索引/">排序与选择索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/排序与选择/数组中的第K个最大元素/">数组中的第K个最大元素</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">设计与数据结构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/LRU缓存/">LRU 缓存</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/字典序的第K小数字/">字典序的第K小数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/实现Trie（前缀树）/">实现 Trie（前缀树）</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/数据流的中位数/">数据流的中位数</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计与数据结构索引/">设计与数据结构索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/设计与数据结构/设计跳表/">设计跳表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数学与位运算</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数字1的个数/">数字 1 的个数</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数学与位运算索引/">数学与位运算索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/数组的最大公因数排序/">数组的最大公因数排序</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/整数反转/">整数反转</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/最大为N的数字组合/">最大为 N 的数字组合</a></li><li><a class="sidebar-link" href="/knowledge/算法/数学与位运算/超级回文数/">超级回文数</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数组与双指针</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/三数之和/">三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/下一个排列/">下一个排列</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/四数之和/">四数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/数组与双指针索引/">数组与双指针索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/旋转图像/">旋转图像</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/最接近的三数之和/">最接近的三数之和</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/盛最多水的容器/">盛最多水的容器</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵II/">螺旋矩阵 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/螺旋矩阵/">螺旋矩阵</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/轮转数组/">轮转数组</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/除了自身以外数组的乘积/">除了自身以外数组的乘积</a></li><li><a class="sidebar-link" href="/knowledge/算法/数组与双指针/颜色分类/">颜色分类</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">贪心</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/贪心/分发糖果/">分发糖果</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/整数转罗马数字/">整数转罗马数字</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/贪心索引/">贪心索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏II/">跳跃游戏 II</a></li><li><a class="sidebar-link" href="/knowledge/算法/贪心/跳跃游戏/">跳跃游戏</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">图与网格</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/图与网格/图与网格索引/">图与网格索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/岛屿数量/">岛屿数量</a></li><li><a class="sidebar-link" href="/knowledge/算法/图与网格/课程表/">课程表</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">字符串</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/算法/字符串/Z字形变换/">Z 字形变换</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/字符串索引/">字符串索引</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最短回文串/">最短回文串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/最长回文子串/">最长回文子串</a></li><li><a class="sidebar-link" href="/knowledge/算法/字符串/有效数字/">有效数字</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Kafka/">Kafka</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/Kafka存储机制索引/">Kafka 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/分区日志与稀疏索引/">分区日志与稀疏索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/存储机制/零拷贝、页缓存与保留策略/">零拷贝、页缓存与保留策略</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/KRaft协调与选主/">KRaft 协调与选主</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka监控与排障/">Kafka 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/高可用与运维/Kafka高可用与运维索引/">Kafka 高可用与运维索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka架构全景与角色分工/">Kafka 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/核心概念与架构/Kafka核心概念与架构索引/">Kafka 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/Kafka可靠性与投递语义索引/">Kafka 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/复制模型与ISR/">复制模型与 ISR</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/可靠性与投递语义/投递语义与消息去重/">投递语义与消息去重</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试速查总表/">Kafka 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/面试题/Kafka面试题索引/">Kafka 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/Kafka生产者索引/">Kafka 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/分区选择、批量与压缩/">分区选择、批量与压缩</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/生产者/幂等、acks与事务/">幂等、acks 与事务</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/Kafka消费者与消费组索引/">Kafka 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/消费组、位点提交与Rebalance/">消费组、位点提交与 Rebalance</a></li><li><a class="sidebar-link" href="/knowledge/Kafka/消费者与消费组/顺序消费与积压处理/">顺序消费与积压处理</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/MySQL/">MySQL</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">复制与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/主从复制与读写分离/">主从复制与读写分离</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/复制与高可用/复制与高可用索引/">复制与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">架构与执行链路</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/MySQLServer分层架构与一条SQL的执行链路/">MySQL Server 分层架构与一条 SQL 的执行链路</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/架构与执行链路/架构与执行链路索引/">架构与执行链路索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/MySQL面试速查总表/">MySQL 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">日志</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Binlog-生成流程、格式与两阶段提交/">Binlog - 生成流程、格式与两阶段提交</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/InnoDBBufferPool-内存结构与脏页刷盘/">InnoDB Buffer Pool - 内存结构与脏页刷盘</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/RedoLog-记录内容、LSN与崩溃恢复/">Redo Log - 记录内容、LSN 与崩溃恢复</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/Redo与Undo的刷盘时机与WAL/">Redo 与 Undo 的刷盘时机与 WAL</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/UndoLog与RedoLog的本质区别/">Undo Log 与 Redo Log 的本质区别</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/日志/日志专题索引/">日志专题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">事务与锁</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/InnoDB锁机制与加锁规则/">InnoDB 锁机制与加锁规则</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL事务基础与MVCC/">MySQL 事务基础与 MVCC</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/MySQL死锁/">MySQL 死锁</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/事务与锁索引/">事务与锁索引</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/事务与锁/混合事务全流程演练-Undo、Redo、MVCC与锁/">混合事务全流程演练 - Undo、Redo、MVCC 与锁</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">索引</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/MySQL/索引/InnoDB索引原理与优化/">InnoDB 索引原理与优化</a></li><li><a class="sidebar-link" href="/knowledge/MySQL/索引/索引专题索引/">索引专题索引</a></li></ul></li></ul></details><details class="sidebar-topic"><summary class="sidebar-topic__label"><a href="/knowledge/Redis/">Redis</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">持久化</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/持久化/RDB与AOF两种持久化机制/">RDB 与 AOF 两种持久化机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/持久化/持久化索引/">持久化索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">缓存设计</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/内存管理与过期淘汰策略/">内存管理与过期淘汰策略</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存三大问题与一致性设计/">缓存三大问题与一致性设计</a></li><li><a class="sidebar-link" href="/knowledge/Redis/缓存设计/缓存设计索引/">缓存设计索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">集群与高可用</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/哨兵与Cluster集群机制/">哨兵与 Cluster 集群机制</a></li><li><a class="sidebar-link" href="/knowledge/Redis/集群与高可用/集群与高可用索引/">集群与高可用索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/面试题/Redis面试速查总表/">Redis 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/Redis/面试题/面试题索引/">面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">数据结构与内部编码</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/Redis数据结构与底层编码/">Redis 数据结构与底层编码</a></li><li><a class="sidebar-link" href="/knowledge/Redis/数据结构与内部编码/数据结构与内部编码索引/">数据结构与内部编码索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">主从复制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/Redis主从复制与数据同步/">Redis 主从复制与数据同步</a></li><li><a class="sidebar-link" href="/knowledge/Redis/主从复制/主从复制索引/">主从复制索引</a></li></ul></li></ul></details><details class="sidebar-topic" open><summary class="sidebar-topic__label"><a href="/knowledge/RocketMQ/">RocketMQ</a></summary><ul class="sidebar-list"><li><span class="sidebar-link sidebar-link--group">存储机制</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/CommitLog、ConsumeQueue与IndexFile/">CommitLog、ConsumeQueue 与 IndexFile</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/RocketMQ存储机制索引/">RocketMQ 存储机制索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/存储机制/刷盘策略与内存映射/">刷盘策略与内存映射</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">高可用与运维</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ监控与排障/">RocketMQ 监控与排障</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/RocketMQ高可用与运维索引/">RocketMQ 高可用与运维索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/" aria-current="page">主从复制与故障转移</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">核心概念与架构</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ架构全景与角色分工/">RocketMQ 架构全景与角色分工</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/核心概念与架构/RocketMQ核心概念与架构索引/">RocketMQ 核心概念与架构索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">可靠性与投递语义</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/RocketMQ可靠性与投递语义索引/">RocketMQ 可靠性与投递语义索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/事务边界与去重约束/">事务边界与去重约束</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/可靠性与投递语义/消息丢失场景与保障/">消息丢失场景与保障</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">面试题</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试速查总表/">RocketMQ 面试速查总表</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/面试题/RocketMQ面试题索引/">RocketMQ 面试题索引</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">生产者</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/RocketMQ生产者索引/">RocketMQ 生产者索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/事务消息、延时与顺序消息/">事务消息、延时与顺序消息</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/生产者/发送流程、可靠性配置与重试/">发送流程、可靠性配置与重试</a></li></ul></li><li><span class="sidebar-link sidebar-link--group">消费者与消费组</span><ul class="sidebar-list sidebar-list--nested"><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/RocketMQ消费者与消费组索引/">RocketMQ 消费者与消费组索引</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/消费模式、位点管理与推送拉取/">消费模式、位点管理与推送拉取</a></li><li><a class="sidebar-link" href="/knowledge/RocketMQ/消费者与消费组/重试、死信与消费堆积/">重试、死信与消费堆积</a></li></ul></li></ul></details></nav> <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist> <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt">  </div> <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">选择主题</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select value="auto" autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">深色</option><option value="light" class="astro-4yphtoen">浅色</option><option value="auto" selected class="astro-4yphtoen">自动</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div>   </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script><div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><div class="toggle sl-flex astro-doynk5tl">本页内容<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></div><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">概述</span> </a>  </li> </ul> </nav></starlight-toc></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="zh-CN" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">主从复制与故障转移 — 后端知识库</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content">  <nav class="breadcrumbs" aria-label="面包屑"> <a href="/">首页</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/RocketMQ/">RocketMQ</a> <span class="breadcrumb-sep" aria-hidden="true">/</span><a href="/knowledge/RocketMQ/高可用与运维/主从复制与故障转移/">主从复制与故障转移</a>  </nav> <div class="note-meta"> <ul class="tag-list">  <li><span class="tag">RocketMQ</span></li><li><span class="tag">高可用与运维</span></li> </ul> <p class="note-updated">最后更新：2026-09-26</p> </div> <article class="note-body"> <h2 id="主从复制与故障转移">主从复制与故障转移</h2>
+<aside class="callout callout-info">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-5v-6m0-3h.01"></path></svg>来源</p>
+<p>基于 RocketMQ 官方文档与 5.x release notes 整理。三条已核实的主线事实按官方口径引用：RocketMQ 5.x 主线是<strong>Proxy + gRPC 接入 + Controller 模式</strong>；<strong>Broker DLedger 模式在 5.x 官方 release notes 中已标注为 legacy（deprecated）</strong>；<strong>NameServer 无状态、不引入共识算法、路由信息为最终一致</strong>，两台 NameServer 互备。
+本文凡涉及配置项默认值处一律只写语义并附口径句。刷盘与内存映射的机制细节见 <a href="/knowledge/RocketMQ/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E4%B8%8E%E5%86%85%E5%AD%98%E6%98%A0%E5%B0%84/">刷盘策略与内存映射</a>，角色分工见 <a href="/knowledge/RocketMQ/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/RocketMQ%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">RocketMQ 架构全景与角色分工</a>，指标与命令见 <a href="/knowledge/RocketMQ/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/RocketMQ%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">RocketMQ 监控与排障</a>。</p>
+</aside>
+<p>主从复制是 RocketMQ 里最容易被当成「Kafka 那一套」讲的一块。根子在于两套系统的协调哲学不同：Kafka 把一致性做进元数据层，RocketMQ 把它留在数据层，中间那台 NameServer 刻意不做共识。把这个差别讲清，RPO / RTO 的所有结论都会自然浮出来。</p>
+<h3 id="一主从复制的两种开关">一、主从复制的两种开关</h3>
+<p><strong>先做一个区分：主从复制不是一个开关，是两个相互正交的开关。</strong> 把它们混成一个「同步还是异步」的问题，是本主题最常见的表达错误。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">开关</th><th align="left">作用层</th><th align="left">取值维度</th><th align="left">影响的语义</th></tr></thead><tbody><tr><td align="left"><strong>开关 A：是否部署副本</strong></td><td align="left">Broker 部署形态与复制方式</td><td align="left">异步主从 / 同步主从</td><td align="left">复制是否等从节点确认</td></tr><tr><td align="left"><strong>开关 B：刷盘方式</strong></td><td align="left">单个 Broker 的落盘策略</td><td align="left"><code dir="auto">ASYNC_FLUSH</code> / <code dir="auto">SYNC_FLUSH</code></td><td align="left">返回客户端前是否已落盘</td></tr></tbody></table></div>
+<p><strong>开关 A 的取值由 <code dir="auto">brokerRole</code> 声明</strong>：合法值只有三个，<code dir="auto">ASYNC_MASTER</code>（异步主从）、<code dir="auto">SYNC_MASTER</code>（同步主从）、<code dir="auto">SLAVE</code>（从节点）。<strong>RocketMQ 5.x 源码默认是 <code dir="auto">ASYNC_MASTER</code>，随包 <code dir="auto">broker.conf</code> 里写的也是 <code dir="auto">ASYNC_MASTER</code></strong>——也就是<strong>不配就是异步主从</strong>，想要同步复制必须显式改成 <code dir="auto">SYNC_MASTER</code>。</p>
+<p><strong>开关 A 的身份标识靠两个配置串起来</strong>：<code dir="auto">brokerName</code> 标识「这是哪一组主从」，同一 <code dir="auto">brokerName</code> 下的多个节点按 <code dir="auto">brokerId</code> 区分角色，主节点使用固定的约定 <code dir="auto">brokerId</code>，从节点取其它值。<code dir="auto">brokerIP1</code> 则是 Broker 注册到 NameServer 时对客户端公布的可达地址。<strong>主从组内 <code dir="auto">brokerId</code> 的具体取值约定随版本变化，以你所用版本的官方文档为准。</strong></p>
+<p><code dir="auto">brokerIP1</code> 有个高频踩坑点：多网卡、容器网络、NAT 或跨 VPC 部署时，Broker 自报的地址客户端可能根本连不上，表现为「发送超时」而非「路由找不到」。这类环境必须显式指定对外地址，不要依赖自动探测。</p>
+<p><strong>开关 B 的两个取值就是官方文档里的 <code dir="auto">SYNC_FLUSH</code> 与 <code dir="auto">ASYNC_FLUSH</code></strong>，语义分别是「返回客户端前等消息落盘」与「写入 PageCache 后即可返回」。<strong>RocketMQ 5.x 源码默认是 <code dir="auto">ASYNC_FLUSH</code>，随包 <code dir="auto">broker.conf</code> 里写的也是 <code dir="auto">ASYNC_FLUSH</code></strong>——与开关 A 一样，<strong>不配就是异步</strong>。同步刷盘路径上有一个超时上限用于兜底（<code dir="auto">syncFlushTimeout</code>，语义为「同步刷盘时的超时上限」），超时后如何处置由版本实现决定，<strong>它的默认值随版本变化，以你所用版本的官方文档为准。</strong></p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A["开关 A：是否部署副本&#x3C;br/>同 brokerName 下按 brokerId 区分主从"] --> C1["异步主从&#x3C;br/>写完主节点即返回"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A --> C2["同步主从&#x3C;br/>等从节点确认后返回"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B["开关 B：刷盘方式&#x3C;br/>flushDiskType"] --> D1["ASYNC_FLUSH&#x3C;br/>进 PageCache 即返回"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">B --> D2["SYNC_FLUSH&#x3C;br/>等落盘再返回&#x3C;br/>有同步刷盘超时上限"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C1 --> M["两个开关正交&#x3C;br/>组合出四种强度"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C2 --> M</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">D1 --> M</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">D2 --> M</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">M --> R["RPO 特征见第五节&#x3C;br/>运维动作见第四节"]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    A[&#x22;开关 A：是否部署副本<br/>同 brokerName 下按 brokerId 区分主从&#x22;] --> C1[&#x22;异步主从<br/>写完主节点即返回&#x22;]    A --> C2[&#x22;同步主从<br/>等从节点确认后返回&#x22;]    B[&#x22;开关 B：刷盘方式<br/>flushDiskType&#x22;] --> D1[&#x22;ASYNC_FLUSH<br/>进 PageCache 即返回&#x22;]    B --> D2[&#x22;SYNC_FLUSH<br/>等落盘再返回<br/>有同步刷盘超时上限&#x22;]    C1 --> M[&#x22;两个开关正交<br/>组合出四种强度&#x22;]    C2 --> M    D1 --> M    D2 --> M    M --> R[&#x22;RPO 特征见第五节<br/>运维动作见第四节&#x22;]"><div></div></button></div></figure></div>
+<p><strong>关键认知：两个开关都开到最严，才是「强一致」形态。</strong> 只开同步复制而刷盘仍是异步，主节点进程崩溃时可能丢已确认的消息；只开同步刷盘而复制仍是异步，主节点整机故障时从节点缺数据。同理，<code dir="auto">maxTransferBytesOnMessageInMemory</code> 这类控制单批消息在内存中搬运量的配置（语义为「单次消息传输在内存中允许的字节上限」）影响的是发送路径的内存压力，<strong>默认值随版本变化，以你所用版本的官方文档为准。</strong></p>
+<p><strong>出厂默认是「两头都不严」，这一点必须单独记住。</strong> <code dir="auto">brokerRole</code> 默认 <code dir="auto">ASYNC_MASTER</code>、<code dir="auto">flushDiskType</code> 默认 <code dir="auto">ASYNC_FLUSH</code>，两个默认值叠起来正好落在第二节那张表的<strong>第一行</strong>，也就是强度最松的那一格。<strong>换句话说 RocketMQ 的 RPO 强弱不由「它是不是高可用产品」决定，而由这两个配置项有没有被显式改过决定。</strong> 高可用产品线不等于高可靠默认配置，这是本主题最反直觉、也最值得在面试里主动点出的一点。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>主从复制到底是同步还是异步？</strong> —— 这题问出来通常意味着还没拆开两个开关。正确答法：复制方式（等不等从节点确认）与刷盘方式（等不等落盘）是两个独立开关，四种组合的强度各不相同，必须分别回答。</li>
+<li><strong><code dir="auto">brokerName</code> 和 <code dir="auto">brokerIP1</code> 有什么区别？</strong> —— 前者是「主从组身份」，决定哪些节点互为副本；后者是「对客户端公布的地址」，决定客户端往哪发请求。两者混为一谈就会把「副本关系配错」和「地址不可达」这两类完全不同的问题当成一类查。</li>
+<li><strong>为什么很多环境必须显式配 <code dir="auto">brokerIP1</code>？</strong> —— Broker 只能自报它认为的对外地址，多网卡、容器与 NAT 场景下自动探测出来的地址客户端未必可达。症状是发送超时而不是找不到路由，容易被误判为网络问题。</li>
+<li><strong>RocketMQ 5.x 出厂默认的主从复制和刷盘是哪一种？</strong> —— 都是异步的那一档：<code dir="auto">brokerRole</code> 默认 <code dir="auto">ASYNC_MASTER</code>，<code dir="auto">flushDiskType</code> 默认 <code dir="auto">ASYNC_FLUSH</code>，两个默认值的随包 <code dir="auto">broker.conf</code> 与源码一致。<strong>要更强的一致性必须显式改配置，不能指望默认值。</strong></li>
+</ol>
+</blockquote>
+<h3 id="二同步复制与异步复制">二、同步复制与异步复制</h3>
+<p><strong>异步主从</strong>：主节点写入成功即向客户端返回，从节点在后台由主节点转发消息。写入延迟低，主从之间没有强耦合，但从节点的数据天然滞后于主节点。主节点整机故障时，滞后窗口内的消息在从节点上不存在。</p>
+<p><strong>同步主从</strong>：主节点要等从节点确认后才向客户端返回。滞后窗口被压到最小，代价是写入延迟与从节点可用性直接绑在一起：<strong>从节点一旦落后太多或链路抖动，主节点的写入就会跟着受阻</strong>，此时业务表现是「发送变慢或超时」，而根因在复制链路。</p>
+<p>复制方式的选择本质是<strong>在写入延迟与故障时数据完整性之间换指标</strong>，不是「哪个更先进」。</p>
+<p><strong>必须把「复制方式」和「刷盘方式」在同一条时间线上对齐。</strong> 从客户端发出一次发送请求到收到成功返回，中间依次经过：网络到达主节点、写入主节点内存、按开关 B 决定是否落盘、按开关 A 决定是否等从节点确认。<strong>客户端拿到成功的那个瞬间，到底有几份数据在哪儿，是这两个开关共同决定的。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">组合</th><th align="left">主节点进程崩溃</th><th align="left">主节点整机故障</th><th align="left">写入延迟</th></tr></thead><tbody><tr><td align="left">异步复制 + 异步刷盘</td><td align="left">可能丢已确认消息</td><td align="left">从节点缺滞后窗口内的数据</td><td align="left">最低</td></tr><tr><td align="left">异步复制 + 同步刷盘</td><td align="left">已确认消息在主节点盘上，从节点仍缺</td><td align="left">同左，滞后窗口不因刷盘而收窄</td><td align="left">低</td></tr><tr><td align="left">同步复制 + 异步刷盘</td><td align="left">主节点盘上有，从节点也有</td><td align="left">滞后窗口被同步复制收窄</td><td align="left">较高</td></tr><tr><td align="left">同步复制 + 同步刷盘</td><td align="left">两处都有</td><td align="left">滞后窗口最小</td><td align="left">最高，且受从节点拖累</td></tr></tbody></table></div>
+<p><strong>这张表是全文最该背下来的一张。</strong> 它的价值在于把「我要更强的可靠性」翻译成「我要付出哪一项代价」，而不是笼统地说「打开同步」。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>同步复制为什么会让发送变慢？</strong> —— 因为客户端的返回时刻被压到从节点确认之后，而不只是主节点落盘那一刻。从节点落后或链路抖动时，主节点必须等，写入延迟随之上升，且此时应查复制链路而不是查磁盘。</li>
+<li><strong>开了同步刷盘就等于不丢消息了吗？</strong> —— 不等于。同步刷盘只保证「已确认的消息在主节点盘上」。主节点整机故障时从节点能否拿到，取决于复制方式，两件事必须分别确认。</li>
+<li><strong>从节点流量太大导致主节点写入受阻，怎么缓解？</strong> —— 这是同步复制的固有代价，不能靠调刷盘解决。方向是排查从节点为什么落后（磁盘 IO、网络带宽、单次传输内存上限），或者接受异步复制并改用其他手段兜底。</li>
+</ol>
+</blockquote>
+<h3 id="三slavereadenabled-的取舍">三、<code dir="auto">slaveReadEnabled</code> 的取舍</h3>
+<p><strong>语义只有一句：是否允许客户端从从节点读取消息。</strong> 至于它在不同部署形态下的默认取向，<strong>默认值随版本变化，以你所用版本的官方文档为准。</strong></p>
+<p>这一项的取舍经常被说反，因此必须分稳态与切换窗口两层来看。</p>
+<p><strong>稳态（主从都健康时）：开启从读是有收益的。</strong> 读流量被分摊到多个节点，主节点的压力下降，主节点故障前就已经有了一条不依赖主节点的读路径。代价是读到的是从节点的数据，从节点天然滞后于主节点，因此<strong>从读是弱一致读</strong>。</p>
+<p><strong>切换窗口（主从角色正在变更时）：开启从读会带来一个短暂的读不可用窗口。</strong> 原因是路由信息在客户端侧是<strong>最终一致</strong>的：NameServer 里的路由表更新完成后，客户端还要等下一轮拉取才会切换目标节点。在这段窗口里，部分读请求仍按本地缓存指向「原来的从节点」，而那个节点此刻的角色正在变化或已经变化，读请求会短暂失败。<strong>换句话说，开启从读把「主节点整体不可用」换成了「切换瞬间一部分读短暂失败」，它降低的是稳态读单点风险，引入的是切换期的可用性抖动。</strong></p>
+<p><strong>关闭从读则相反</strong>：读请求全部打在主节点，读的一致性最强、没有从节点滞后问题，但主节点故障后到新主就绪之间的读请求必须全部等待。<strong>在切换窗口里，关闭从读的不可用面更大、持续时间更长。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">开启从读</th><th align="left">关闭从读</th></tr></thead><tbody><tr><td align="left">稳态读一致性</td><td align="left">弱一致，读到从节点数据</td><td align="left">最强，读主节点数据</td></tr><tr><td align="left">主节点读压力</td><td align="left">分摊</td><td align="left">全部集中在主节点</td></tr><tr><td align="left">主节点故障前的读冗余</td><td align="left">有独立读路径</td><td align="left">无</td></tr><tr><td align="left">切换窗口内的表现</td><td align="left">部分读因路由缓存滞后而短暂失败</td><td align="left">全部读等待新主就绪，不可用面更大</td></tr><tr><td align="left">读请求一致性要求高的业务</td><td align="left">不适用</td><td align="left">适用</td></tr></tbody></table></div>
+<p><strong>决策要点：如果业务能接受弱一致读且主节点读压力是瓶颈，开从读；如果读一致性是硬要求或主节点读压力不大，关闭从读。</strong> 不要用「主从切换时读不可用」这一个维度单独做决定，那只覆盖了切换窗口，没覆盖稳态收益。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>开启从读后主从切换时读会失败，这是不是说明从读不好？</strong> —— 不是，这是两种风险的选择。开启从读把「主节点故障后全部读不可用」换成「切换瞬间部分读短暂失败」，同时在稳态下多了一条不依赖主节点的读路径并分摊了压力。只看切换窗口会得出错误结论。</li>
+<li><strong>从读为什么读到的是旧数据？</strong> —— 因为复制默认是异步的，从节点收到消息存在滞后。<strong>从读是弱一致读</strong>，读一致性要求高的场景不应开启。</li>
+<li><strong>从读导致读到旧数据，怎么在架构上避免？</strong> —— 方向是收紧复制方式（同步复制收窄滞后窗口）与缩短客户端感知延迟，而不是简单关掉从读，因为关掉它会把风险转移到主节点单点上。</li>
+</ol>
+</blockquote>
+<h3 id="四故障转移流程">四、故障转移流程</h3>
+<p><strong>先说结论：5.x 的故障转移决策由 Controller 做出，NameServer 全程不参与。</strong> 这是本主题最需要说清的一点。NameServer 只提供路由表，而且是无状态、无共识、最终一致的（见第六节），它既不知道谁是主，也不做选主决策。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">sequenceDiagram</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant M as 原主节点 Broker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant C as Controller</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant S as 从节点 Broker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant N as NameServer</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">participant CL as 客户端 / Proxy</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over M: Broker 故障（进程退出 / 掉电 / 长时间失联）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>C: 感知 broker 状态变化</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>C: 在该 brokerName 下选出新的主节点</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">C->>S: 下发角色变更</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">S->>S: 提升为主，开始接受写入</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">S->>N: 更新注册信息（路由表随之变化）</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over N: 路由更新是最终一致，不是强同步</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">CL->>N: 下一轮路由拉取</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">N-->>CL: 返回新路由</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">CL->>S: 按新路由继续读写</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">Note over CL,S: 客户端感知滞后 = RTO 的一部分</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="sequenceDiagram    participant M as 原主节点 Broker    participant C as Controller    participant S as 从节点 Broker    participant N as NameServer    participant CL as 客户端 / Proxy    Note over M: Broker 故障（进程退出 / 掉电 / 长时间失联）    C->>C: 感知 broker 状态变化    C->>C: 在该 brokerName 下选出新的主节点    C->>S: 下发角色变更    S->>S: 提升为主，开始接受写入    S->>N: 更新注册信息（路由表随之变化）    Note over N: 路由更新是最终一致，不是强同步    CL->>N: 下一轮路由拉取    N-->>CL: 返回新路由    CL->>S: 按新路由继续读写    Note over CL,S: 客户端感知滞后 = RTO 的一部分"><div></div></button></div></figure></div>
+<p><strong>流程拆成五段，RTO 就是这五段之和：</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">阶段</th><th align="left">谁负责</th><th align="left">耗时受什么支配</th></tr></thead><tbody><tr><td align="left">故障检测</td><td align="left">Controller</td><td align="left">心跳周期与判定超时的设定</td></tr><tr><td align="left">选主决策</td><td align="left">Controller</td><td align="left">集群规模与协调开销</td></tr><tr><td align="left">新主就绪</td><td align="left">新主节点自身</td><td align="left">启动或角色切换、追平进度</td></tr><tr><td align="left">路由更新</td><td align="left">NameServer</td><td align="left">周期性更新与注册流程</td></tr><tr><td align="left">客户端感知</td><td align="left">客户端 / Proxy</td><td align="left"><strong>路由拉取周期，客户端是轮询不是推送</strong></td></tr></tbody></table></div>
+<p><strong>最后一段最容易被忽略，却是 RTO 里经常占比最大的一段。</strong> 新主可能早已就绪，但客户端仍按本地缓存把请求发给旧地址，直到下一轮拉取才纠正。<strong>因此缩短路由拉取周期对 RTO 的改善，往往比优化选主逻辑更直接。</strong></p>
+<p><strong>故障检测与选主判定相关的各项超时与周期配置，其具体取值属于实现细节：默认值随版本变化，以你所用版本的官方文档为准。</strong> 调整它们的判断顺序是：先看 Broker 日志确认故障时刻，再看新主实际就绪时刻，最后看客户端日志确认路由何时被纠正。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>NameServer 在故障转移里扮演什么角色？</strong> —— 只提供路由表，且是无状态、无共识、最终一致的。它不检测故障、不选主、不参与切换决策。把它说成「协调者」是错的。</li>
+<li><strong>为什么新主就绪了客户端还发错地址？</strong> —— 因为路由是最终一致，客户端靠周期性拉取更新本地缓存，不会被推送。切换新主只解决了服务端侧，客户端侧还有一段感知滞后。</li>
+<li><strong>RTO 应该怎么拆开算？</strong> —— 拆成检测、选主、新主就绪、路由更新、客户端感知五段相加。只盯着「选主耗时」会严重低估真实的业务不可用时长。</li>
+<li><strong>RTO 能做到多短有下限吗？</strong> —— 有，客户端路由拉取周期构成硬下限，除非改成推送式路由通知。</li>
+</ol>
+</blockquote>
+<h3 id="五rpo-与-rto-的权衡">五、RPO 与 RTO 的权衡</h3>
+<p><strong>RPO（恢复点目标）回答「故障时最多丢多少数据」，RTO（恢复时间目标）回答「多久恢复服务」。</strong> 两者不是同一个旋钮，通常此消彼长，但 RocketMQ 里它们的驱动因素并不完全重叠，值得分开看。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">指标</th><th align="left">由什么决定</th><th align="left">想改善它该动什么</th></tr></thead><tbody><tr><td align="left"><strong>RPO</strong></td><td align="left">异步复制的滞后窗口、刷盘方式、主从数据一致性</td><td align="left">收紧复制方式、收紧刷盘方式、减少批量异步转发</td></tr><tr><td align="left"><strong>RTO</strong></td><td align="left">故障检测周期、选主耗时、新主追平、路由更新、客户端路由拉取周期</td><td align="left">缩短检测与拉取周期、保证新主能快速就位、保证 Controller 可用</td></tr></tbody></table></div>
+<p><strong>RPO 的推导顺序：先问「客户端拿到成功时数据有几份、分别在哪」，再问「故障点之后进来的数据在从节点存不存在」。</strong> 第一问对应开关 B 与复制方式，第二问对应同步还是异步复制。第三节表里那个「同步复制 + 异步刷盘」的组合值得单独强调：它把 RPO 压得很低（从节点有数据），但主节点进程崩溃时仍有窗口，两个指标要分别优化。</p>
+<p><strong>RTO 的推导顺序：按第四节的五段逐段量，不要凭感觉估。</strong> 实操上最有效的一步是<strong>分别记录 Broker 故障时刻、新主可写时刻、客户端不再报错时刻</strong>这三个时间点，差值才是真实的业务不可用时长，工具输出里的选主耗时通常只覆盖中间那一段。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">flowchart TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G["目标：更小的 RPO 与更短的 RTO"] --> G1["RPO 侧"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G --> G2["RTO 侧"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G1 --> H1["收紧复制方式&#x3C;br/>从异步到同步"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G1 --> H2["收紧刷盘方式&#x3C;br/>从异步到同步"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G1 --> H3["缩小批量异步转发的量"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G2 --> K1["缩短故障检测与判定周期"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G2 --> K2["保证 Controller 始终有可用实例"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G2 --> K3["缩短客户端路由拉取周期"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">G2 --> K4["保证新主无需长时间追平"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">H1 --> W["代价：写入延迟上升&#x3C;br/>且从节点成为延迟来源"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">H2 --> W</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">H3 --> W</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">K3 --> W2["代价：NameServer 与网络压力上升"]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="flowchart TD    G[&#x22;目标：更小的 RPO 与更短的 RTO&#x22;] --> G1[&#x22;RPO 侧&#x22;]    G --> G2[&#x22;RTO 侧&#x22;]    G1 --> H1[&#x22;收紧复制方式<br/>从异步到同步&#x22;]    G1 --> H2[&#x22;收紧刷盘方式<br/>从异步到同步&#x22;]    G1 --> H3[&#x22;缩小批量异步转发的量&#x22;]    G2 --> K1[&#x22;缩短故障检测与判定周期&#x22;]    G2 --> K2[&#x22;保证 Controller 始终有可用实例&#x22;]    G2 --> K3[&#x22;缩短客户端路由拉取周期&#x22;]    G2 --> K4[&#x22;保证新主无需长时间追平&#x22;]    H1 --> W[&#x22;代价：写入延迟上升<br/>且从节点成为延迟来源&#x22;]    H2 --> W    H3 --> W    K3 --> W2[&#x22;代价：NameServer 与网络压力上升&#x22;]"><div></div></button></div></figure></div>
+<p><strong>代价必须说在前面：RPO 与 RTO 的改善都有成本，没有免费的组合。</strong> 收紧复制与刷盘会推高写入延迟并让从节点故障开始影响主链路；缩短检测与拉取周期会增加 NameServer 与网络的开销。只讲收益不讲代价的答案是错的。</p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>RPO 到底由刷盘还是由复制决定？</strong> —— 两者都决定，但管的是不同故障类型。刷盘管主节点<strong>进程</strong>崩溃，复制管主节点<strong>整机</strong>故障。只答一个就漏了一半场景。</li>
+<li><strong>为什么 RTO 经常比想象的长？</strong> —— 因为真实不可用时长包含客户端路由感知这一段，而它由路由拉取周期支配。工具报告的切换耗时常只覆盖选主与新主就绪。</li>
+<li><strong>能不能既零 RPO 又短 RTO？</strong> —— 不能。异步转发量、刷盘方式、复制方式、拉取周期每一个都要用延迟或资源换。把所有旋钮推到最严通常会让写入延迟先崩，需要按业务分级而不是一刀切。</li>
+<li><strong>怎么做成本最低的容灾方案？</strong> —— 按 Topic 分级：核心交易类收紧复制与刷盘，日志类接受异步；再把检测与拉取周期压到业务能接受的水平，而不是全量拉满。</li>
+</ol>
+</blockquote>
+<h3 id="六从-dledger-到-5x-controller-的演进">六、从 DLedger 到 5.x Controller 的演进</h3>
+<p><strong>先说当前形态：RocketMQ 5.x 的主线是 Proxy + gRPC 接入，Broker 侧的高可用协调由 Controller 模式承载。</strong> 官方 5.x release notes 已把 Broker DLedger 模式标注为 legacy（deprecated），官方 release notes 与 PR #10642 是这一判断的来源。</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="mermaid"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">graph TD</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph legacy1["传统主从（4.x 及以前的常见形态）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A1["Master"] -->|"异步转发"| B1["Slave"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph legacy2["Broker DLedger 模式（4.x，已在 5.x 标注 legacy）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A2["Master"] &#x3C;-->|"多数派写入"| B2["Slave"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">subgraph current["Controller 模式（5.x 主线）"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">        </span></span><span style="--0:#D6DEEB;--1:#403F53">A3["Master"] -.->|"由 Controller 选主与下发角色"| B3["Slave"]</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">end</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A1 -.->|"角色下发从人工脚本&#x3C;br/>转为由协调者承担"| A2</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">A2 -.->|"多数派自协调&#x3C;br/>转为外部协调者"| A3</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="graph TD    subgraph legacy1[&#x22;传统主从（4.x 及以前的常见形态）&#x22;]        A1[&#x22;Master&#x22;] -->|&#x22;异步转发&#x22;| B1[&#x22;Slave&#x22;]    end    subgraph legacy2[&#x22;Broker DLedger 模式（4.x，已在 5.x 标注 legacy）&#x22;]        A2[&#x22;Master&#x22;] <-->|&#x22;多数派写入&#x22;| B2[&#x22;Slave&#x22;]    end    subgraph current[&#x22;Controller 模式（5.x 主线）&#x22;]        A3[&#x22;Master&#x22;] -.->|&#x22;由 Controller 选主与下发角色&#x22;| B3[&#x22;Slave&#x22;]    end    A1 -.->|&#x22;角色下发从人工脚本<br/>转为由协调者承担&#x22;| A2    A2 -.->|&#x22;多数派自协调<br/>转为外部协调者&#x22;| A3"><div></div></button></div></figure></div>
+<p><strong>这里必须点明与 Kafka 的一处根本不对称，它是本主题面试的高分点。</strong> Kafka 4.x 通过 <strong>KRaft 内置的 RAFT 共识日志（Controller Quorum）</strong> 达成元数据一致：元数据本身就是一条被多数派复制的日志，Controller Leader 挂掉后由投票选出新 Leader，接管时不需要从别处加载状态。<strong>RocketMQ 的 NameServer 恰恰相反：它无状态、不引入共识算法、路由信息是最终一致，两台 NameServer 互备。</strong></p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">Kafka 4.x（KRaft）</th><th align="left">RocketMQ 5.x</th></tr></thead><tbody><tr><td align="left">元数据一致性的实现</td><td align="left">内置 RAFT 共识日志，Controller Quorum 多数派复制</td><td align="left">NameServer 无状态，<strong>不引入共识算法</strong></td></tr><tr><td align="left">协调者故障后的行为</td><td align="left">选新 Leader，无状态需加载，切换后动态能力恢复</td><td align="left">NameServer 互备，切换不涉及状态转移</td></tr><tr><td align="left">一致性等级</td><td align="left">已提交元数据强一致</td><td align="left"><strong>路由信息最终一致</strong></td></tr><tr><td align="left">控制面中断的系统影响</td><td align="left">失去动态能力（新建 / 扩分区、副本重分配、Leader 变更），<strong>数据面读写存活</strong>，因为 Broker 各自持有完整元数据日志副本</td><td align="left">影响的是<strong>路由发现</strong>：客户端已缓存的路由仍可用，新建主题与队列扩容拿不到新信息，客户端长期不刷新则新客户端无法取路由</td></tr><tr><td align="left">谁做故障转移决策</td><td align="left">Controller Leader（RAFT 选出）</td><td align="left">Controller 模式，NameServer 不参与</td></tr></tbody></table></div>
+<p><strong>故障行为的差异要精确表述，不能含糊成「差不多」：</strong> Kafka 的 Controller 全挂时，集群不是完全不可用，而是从「自愈」降级为「按最后一次已知元数据继续服务数据面」，动态能力失效但已有数据面存活；RocketMQ 的 NameServer 不可用时，<strong>受影响的是路由发现这条链路</strong>，存量路由在客户端缓存里仍可继续用，但任何依赖新路由的操作（新建主题、队列扩容、路由变更下发）拿不到结果，新上线的客户端在缓存为空时无法取到路由。<strong>前者的失效面集中在「变更类操作」，后者的失效面集中在「路由获取」，这是两套设计各自的取舍结果。</strong></p>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>旧版做法</p>
+<p><strong>当前做法</strong>：RocketMQ 5.x 由 <strong>Controller 模式</strong>接管选主与角色下发，Broker DLedger 模式已在 5.x 官方 release notes 中标注为 legacy（deprecated，见 PR #10642）。5.x 新建集群应直接采用 Controller 模式。
+<strong>旧版做法</strong>：Broker DLedger 模式把多数派写的一致性协议内嵌进 Broker 进程本身，由 Broker 之间互相投票决定谁是主，Master 与 Slave 通过多数派写入互相确认。
+<strong>两者差别</strong>：DLedger 把一致性协议塞进数据面进程，选主与写入耦合在一起，代价是 Broker 进程要承担共识开销，运维复杂度与资源成本都更高；Controller 模式把「谁是主」交给独立的协调者，Broker 只按指令切换角色。<strong>此机制为旧版，新版由 RocketMQ 5.x Controller 模式替代。</strong> 本 callout 仅用于维护存量 4.x 集群时对照，新版设计请以正文各节为准。</p>
+</aside>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>旧版做法</p>
+<p><strong>当前做法</strong>：5.x 集群的主从切换由 <strong>Controller 模式接管选主与切换</strong>，故障检测、选主决策与角色下发都由 Controller 完成。
+<strong>旧版做法</strong>：传统 Master-Slave 部署（没有 Controller 的那一档）里，Master 故障后的切换依赖外部手段：人工介入或运维脚本把某个 Slave 提升为 Master，再手工修正配置与注册信息。
+<strong>两者差别</strong>：传统方式没有常驻的选主决策者，切换是「事件驱动的人工动作」，切换时长取决于人的响应速度，且在多组主从的场景下容易漏切或误切；Controller 模式把切换变成由协调者按状态自动触发的动作。<strong>此机制为旧版，新版由 Controller 模式接管选主与切换替代。</strong></p>
+</aside>
+<aside class="callout callout-warning">
+<p class="callout-header"><svg class="callout-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"></path></svg>旧版做法</p>
+<p><strong>当前做法</strong>：5.x 由 <strong>Proxy 层的 Tag 与 SQL92 过滤链</strong>承担消息过滤，Proxy 作为统一接入层完成订阅匹配后把消息投递给客户端。
+<strong>旧版做法</strong>：FilterServer 作为 Broker 侧的过滤进程，客户端把过滤表达式下发给 Broker，由 FilterServer 承接过滤后返回结果。
+<strong>两者差别</strong>：FilterServer 的过滤发生在 Broker 侧，需要客户端能把过滤逻辑表达给 Broker；Proxy 过滤链把过滤放在接入层统一完成，与存储层解耦，也更贴合 5.x 的 Proxy + gRPC 接入形态。<strong>此机制为旧版，新版由 5.x Proxy + Tag/SQL92 过滤链替代。</strong> 本 callout 仅用于理解存量 4.x 部署的架构图。</p>
+</aside>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>RocketMQ 5.x 还推荐用 DLedger 做高可用吗？</strong> —— 不推荐。官方 5.x release notes 已把 Broker DLedger 模式标注为 legacy（deprecated，PR #10642），当前主线是 Proxy + gRPC + Controller 模式。存量 4.x 集群可继续维护，但新部署不应再选它。</li>
+<li><strong>NameServer 无状态、不引入共识算法，那路由怎么保证不丢？</strong> —— 靠的是最终的可用性而非强一致：两台 NameServer 互备，Broker 周期性注册，客户端周期性拉取并本地缓存。代价是路由是<strong>最终一致</strong>，切换窗口内客户端可能短暂持有旧路由。</li>
+<li><strong>Kafka 和 RocketMQ 的协调层最大的差别是什么？</strong> —— Kafka 用内置 RAFT 共识日志（Controller Quorum）达成元数据强一致；RocketMQ 的 NameServer 无状态、无共识、只最终一致。由此 Kafka 的控制面失效表现为「动态能力失效但数据面存活」，RocketMQ 的 NameServer 失效表现为「路由发现受影响」。</li>
+<li><strong>为什么 NameServer 不引入共识算法是合理的设计？</strong> —— 代价换来的是极简的部署与极低的资源开销，路由信息的可容忍延迟窗口通常远大于业务对元数据一致性的要求。前提是 Broker 与客户端都必须能容忍一段时间的路由滞后，并且客户端有本地缓存兜底。<strong>这是基于官方架构文档口径的解读，官方未直接给出该取舍的理由，展开这一层建议标注为「需实操验证」。</strong></li>
+</ol>
+</blockquote>
+<h3 id="七三种高可用方案对比">七、三种高可用方案对比</h3>
+<p><strong>这是本篇的收口表。</strong> 三个方案的差别不在「能不能用」，而在<strong>把一致性成本放在哪一层</strong>。</p>
+<div class="table-scroll" role="region" tabindex="0" aria-label="表格，可横向滚动">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="left">维度</th><th align="left">传统主从（无 Controller）</th><th>Broker DLedger 模式（4.x）</th><th>Controller 模式（5.x 主线）</th></tr></thead><tbody><tr><td align="left"><strong>谁决定谁是主</strong></td><td align="left">人工或外部脚本</td><td>Broker 之间的多数派投票</td><td>独立的 Controller</td></tr><tr><td align="left"><strong>RPO 特征</strong></td><td align="left">取决于复制与刷盘方式，异步转发时滞后窗口明显</td><td>多数派写入，滞后窗口被收窄；进程崩溃仍受刷盘方式约束</td><td>取决于复制与刷盘方式；切换由协调者驱动，不因选主不确定而放大</td></tr><tr><td align="left"><strong>RTO 特征</strong></td><td align="left">切换耗时取决于人的响应，最不可控</td><td>无外部协调者，切换自动完成；但需等多数派形成</td><td>检测、选主、新主就绪、路由更新、客户端感知五段之和，可逐段优化</td></tr><tr><td align="left"><strong>运维复杂度</strong></td><td align="left">简单，但要人工兜底切换与配置修正</td><td>较高，Broker 进程内嵌共识协议，排查链路长</td><td>需额外维护 Controller 实例，但切换路径统一</td></tr><tr><td align="left"><strong>适用版本</strong></td><td align="left">4.x 及以前的存量部署</td><td>4.x；5.x 已标注 legacy</td><td><strong>RocketMQ 5.x 主线</strong></td></tr><tr><td align="left"><strong>与 Kafka 的对应关系</strong></td><td align="left">无直接对应</td><td>思路接近「Broker 内自协商」，但 Kafka 未采用</td><td>与 Kafka 的 Controller Quorum 思路接近，但一致性实现方式不同</td></tr></tbody></table></div>
+<p><strong>基线对照：单主无副本</strong>。它是所有方案的起点：RPO 等于故障瞬间丢失的量（没有第二份数据），RTO 取决于重启或重建的速度，成本最低但没有任何冗余。<strong>任何高可用方案都是在单主基线上，用写入延迟、硬件成本与运维复杂度换 RPO 与 RTO。</strong></p>
+<p><strong>与 Kafka 4.x 的对照必须单列一句，因为它决定了两套系统的故障面貌：</strong> Kafka 4.x 靠 <strong>KRaft 内置的 RAFT 共识日志</strong>（Controller Quorum）拿到元数据强一致，Broker 各自持有完整元数据日志副本，所以 <strong>Controller 全挂时集群退化为「按最后一次已知元数据继续服务数据面」——动态能力（新建、扩分区、副本重分配、Leader 变更）失效，但已有数据的读写与位点提交存活</strong>。RocketMQ 的 <strong>NameServer 无状态、不引入共识算法、路由最终一致</strong>，所以 <strong>NameServer 不可用时受影响的是路由发现</strong>——客户端已缓存的路由仍可继续用，依赖新路由的操作（新建主题、队列扩容、路由变更下发）拿不到结果，缓存为空的新客户端则无法取到路由。<strong>一句话记法：Kafka 的控制面缺失伤在「变更」，RocketMQ 的 NameServer 缺失伤在「发现」。</strong></p>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>三种方案该怎么选？</strong> —— 只在 5.x 上新建就用 Controller 模式，没有选择余地。真正的问题是在 Controller 模式内把 RPO 与 RTO 调到多少，以及为此接受多少写入延迟。</li>
+<li><strong>DLedger 看起来更强，为什么还是被弃用？</strong> —— 它的多数派写入确实收窄了滞后窗口，代价是把共识协议塞进数据面进程，Broker 更重、排查链路更长、运维成本更高。5.x 选择了把协调职责外置到独立的 Controller。</li>
+<li><strong>说清 Kafka 与 RocketMQ 协调层的不对称。</strong> —— Kafka 4.x 用内置 RAFT 共识日志实现元数据强一致，Controller 中断时数据面存活、动态能力失效；RocketMQ 的 NameServer 无状态、无共识、路由最终一致，中断时影响的是路由发现，存量路由可用但拿不到新路由。</li>
+<li><strong>传统主从真的不能用于 5.x 吗？</strong> —— 本文只写语义不给阈值：<strong>默认阈值随版本变化，以你所用版本的官方文档为准。</strong> 架构上 5.x 的高可用设计以 Controller 模式为前提，传统主从属于存量形态，仅在维护存量集群时对照使用。</li>
+</ol>
+</blockquote>
+<h3 id="八面试高频追问">八、面试高频追问</h3>
+<blockquote>
+<p><strong>面试追问</strong></p>
+<ol>
+<li><strong>RocketMQ 和 Kafka 的高可用，核心差别用一句话怎么说？</strong> —— RocketMQ 把一致性留在数据面（主从复制与刷盘），元数据交给无状态、无共识、最终一致的 NameServer；Kafka 把一致性做进元数据面（KRaft 内置 RAFT 共识日志），数据面只认分区 Leader。</li>
+<li><strong>NameServer 挂了 RocketMQ 集群还能用吗？</strong> —— 能，但退化。要区分两层：客户端已缓存的路由继续支撑存量读写；依赖新路由的操作（新建主题、队列扩容、路由变更）拿不到结果，缓存为空的新客户端无法取路由。<strong>受影响的是路由发现，不是数据本身。</strong></li>
+<li><strong>说清 RPO 与 RTO 各由什么决定。</strong> —— RPO 由刷盘方式（主节点进程崩溃）与复制方式（主节点整机故障）分别决定；RTO 由故障检测、选主、新主就绪、路由更新、客户端感知五段之和决定，其中客户端路由拉取周期经常是最大的一段。</li>
+<li><strong>开从读有什么代价？</strong> —— 稳态下读到的是从节点数据，属弱一致读；切换窗口内客户端缓存滞后会让一部分读短暂失败。收益是分摊主节点读压力并提供一条不依赖主节点的读路径。</li>
+<li><strong>5.x 部署时最常见的配置坑是什么？</strong> —— <code dir="auto">brokerIP1</code> 在多网卡 / 容器 / NAT 环境下自报地址客户端不可达，症状是发送超时而非找不到路由。</li>
+</ol>
+</blockquote>
+<blockquote>
+<p><strong>答题骨架</strong></p>
+<ol>
+<li><strong>先立对照</strong>：Kafka 4.x 元数据强一致（KRaft 内置 RAFT 共识日志 / Controller Quorum），RocketMQ NameServer 无状态、无共识、路由最终一致。</li>
+<li><strong>再拆两个开关</strong>：复制方式与刷盘方式正交，分别回答，不要合说。</li>
+<li><strong>再给能力边界</strong>：故障转移由 Controller 决策，NameServer 只提供路由；RTO 是五段之和，客户端感知常占最大头。</li>
+<li><strong>最后给代价</strong>：收紧复制与刷盘推高延迟并让从节点进入主链路；开启从读换稳态冗余、代价是弱一致与切换窗口抖动。</li>
+<li><strong>收尾提旧版</strong>：DLedger 与传统主从均为 legacy，FilterServer 已由 Proxy 过滤链替代，涉及存量集群时对照使用。</li>
+</ol>
+</blockquote>
+<h3 id="相关阅读">相关阅读</h3>
+<ul>
+<li><a href="/knowledge/RocketMQ/%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6/%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E4%B8%8E%E5%86%85%E5%AD%98%E6%98%A0%E5%B0%84/">刷盘策略与内存映射</a> —— 开关 B 的完整机制，PageCache 与内存映射如何影响刷盘与 RPO</li>
+<li><a href="/knowledge/RocketMQ/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/RocketMQ%E6%9E%B6%E6%9E%84%E5%85%A8%E6%99%AF%E4%B8%8E%E8%A7%92%E8%89%B2%E5%88%86%E5%B7%A5/">RocketMQ 架构全景与角色分工</a> —— Producer / Consumer / Broker / NameServer / Proxy 的职责边界，本篇故障域划分的依据</li>
+<li><a href="/knowledge/RocketMQ/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/RocketMQ%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">RocketMQ 监控与排障</a> —— 故障检测、复制滞后、客户端路由刷新的观测与命令</li>
+<li><a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/KRaft%E5%8D%8F%E8%B0%83%E4%B8%8E%E9%80%89%E4%B8%BB/">KRaft 协调与选主</a> —— Kafka 侧对照：内置 RAFT 共识日志、Controller Quorum 与元数据强一致</li>
+<li><a href="/knowledge/Kafka/%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E8%BF%90%E7%BB%B4/Kafka%E7%9B%91%E6%8E%A7%E4%B8%8E%E6%8E%92%E9%9A%9C/">Kafka 监控与排障</a> —— Kafka 侧对照：控制面失效与数据面存活的指标判据</li>
+<li><a href="/knowledge/RocketMQ/%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%B8%8E%E6%8A%95%E9%80%92%E8%AF%AD%E4%B9%89/%E6%B6%88%E6%81%AF%E4%B8%A2%E5%A4%B1%E5%9C%BA%E6%99%AF%E4%B8%8E%E4%BF%9D%E9%9A%9C/">消息丢失场景与保障</a> —— 把本篇的 RPO 结论接到可靠性话题</li>
+<li><a href="/knowledge/RocketMQ/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84/RocketMQ%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%9E%B6%E6%9E%84%E7%B4%A2%E5%BC%95/">RocketMQ 核心概念与架构索引</a> —— 主题入口</li>
+</ul> </article> <nav class="toc" aria-label="目录"> <h2>目录</h2> <ul> <li class="toc-depth-2"> <a href="#主从复制与故障转移">主从复制与故障转移</a> </li><li class="toc-depth-3"> <a href="#一主从复制的两种开关">一、主从复制的两种开关</a> </li><li class="toc-depth-3"> <a href="#二同步复制与异步复制">二、同步复制与异步复制</a> </li><li class="toc-depth-3"> <a href="#三slavereadenabled-的取舍">三、slaveReadEnabled 的取舍</a> </li><li class="toc-depth-3"> <a href="#四故障转移流程">四、故障转移流程</a> </li><li class="toc-depth-3"> <a href="#五rpo-与-rto-的权衡">五、RPO 与 RTO 的权衡</a> </li><li class="toc-depth-3"> <a href="#六从-dledger-到-5x-controller-的演进">六、从 DLedger 到 5.x Controller 的演进</a> </li><li class="toc-depth-3"> <a href="#七三种高可用方案对比">七、三种高可用方案对比</a> </li><li class="toc-depth-3"> <a href="#八面试高频追问">八、面试高频追问</a> </li><li class="toc-depth-3"> <a href="#相关阅读">相关阅读</a> </li> </ul> </nav>  </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div> <script type="module" src="/_astro/Mermaid.astro_astro_type_script_index_0_lang.BPqmuGDQ.js"></script> </body></html>
